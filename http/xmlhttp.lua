@@ -69,133 +69,134 @@ local xhr = E.xhr()
 -- Functions dealing with Javascript interaction. 
 ------------------------------------------------------
 local js = {
-		  ------------------------------------------------------
-		  -- local set( e, name ) 
-		  --
-		  -- Assign [e] to variable [name]  
-		  -- *nil
-		  ------------------------------------------------------
-		  set = function( e, name )
-				return name .. ' = "' .. e .. '"'
-		  end,
+	------------------------------------------------------
+	-- local set( e, name ) 
+	--
+	-- Assign [e] to variable [name]  
+	-- *nil
+	------------------------------------------------------
+	set = function( e, name )
+		return name .. ' = "' .. e .. '"'
+	end,
 
 
-		  ------------------------------------------------------
-		  -- local pkg( )
-		  --
-		  -- Wrap what you're doing in <script> tags.
-		  -- *string
-		  ------------------------------------------------------
-		  pkg = function ( e )
-		     --return _.script({ type = "text/javascript" }, e )
-		     return string.format("<script type='text/javascript'>%s</script>",e) 
-		  end,
+	------------------------------------------------------
+	-- local pkg( )
+	--
+	-- Wrap what you're doing in <script> tags.
+	-- *string
+	------------------------------------------------------
+	pkg = function ( e )
+		--return _.script({ type = "text/javascript" }, e )
+		return string.format("<script type='text/javascript'>%s</script>",e) 
+	end,
 
-		  ------------------------------------------------------
-		  -- local arrayify(t) 
-		  --
-		  -- Turn everything in [t] into a Javascript array.
-		  -- *string
-		  ------------------------------------------------------
-		  arrayify = function ( t, name ) 
-			  -- Store in [name] all elements in [t].	
-			  local js, rsrc = {}, "var " .. name .. " = [" 
-			  for _,v in ipairs(t) do
-				  table.insert(js, "'" .. v .. "'")
-			  end 
+	------------------------------------------------------
+	-- local arrayify(t) 
+	--
+	-- Turn everything in [t] into a Javascript array.
+	-- *string
+	------------------------------------------------------
+	arrayify = function ( t, name ) 
+		-- Store in [name] all elements in [t].	
+		local js, rsrc = {}, "var " .. name .. " = [" 
+		for _,v in ipairs(t) do
+			table.insert(js, "'" .. v .. "'")
+		end 
 
-			  return table.concat( {rsrc, table.concat(js,","), "];"} )
-		  end,
-
-
-		  ------------------------------------------------------
-		  -- .test()
-		  --
-		  -- Modify an object and see if we get a response
-		  -- back.
-		  -- *boolean
-		  ------------------------------------------------------
-		  test = function () 
-		  end,
+		return table.concat( {rsrc, table.concat(js,","), "];"} )
+	end,
 
 
-		  ------------------------------------------------------
-		  -- .serve(t, name) 
-		  --
-		  -- Serve some JS and let pagan.js work in the
-		  -- background. 
-		  -- *nil
-		  ------------------------------------------------------
-		  serve = function (t,name)
-			  -- 200 only if no issues...
-			  response.abort({200,"text/javascript"}, arrayify( t ) )
-		  end
+	------------------------------------------------------
+	-- .test()
+	--
+	-- Modify an object and see if we get a response
+	-- back.
+	-- *boolean
+	------------------------------------------------------
+	test = function () 
+	end,
+
+
+	------------------------------------------------------
+	-- .serve(t, name) 
+	--
+	-- Serve some JS and let pagan.js work in the
+	-- background. 
+	-- *nil
+	------------------------------------------------------
+	serve = function (t,name)
+		-- 200 only if no issues...
+		response.abort({200,"text/javascript"}, arrayify( t ) )
+	end
 }
 
+
+------------------------------------------------------
+-- public methods {} 
+------------------------------------------------------
 return {
-	  ------------------------------------------------------
-	  -- get() 
-	  --
-	  --  
-	  ------------------------------------------------------
-	  get = function ()
+	------------------------------------------------------
+	-- get() 
+	--
+	--  
+	------------------------------------------------------
+	get = function ()
 
-	  end,
+	end,
 
-	  ------------------------------------------------------
-	  -- post() 
-	  --
-	  --  
-	  ------------------------------------------------------
-	  post = function ()
+	------------------------------------------------------
+	-- post() 
+	--
+	--  
+	------------------------------------------------------
+	post = function ()
 
-	  end,
+	end,
 
 
+	------------------------------------------------------
+	-- .autobind(t,location) 
+	--
+	-- Autobind your requests to resultant anchor tags from 
+	-- E.links.  
+	--
+	-- // More 
+	-- Fallbacks (or graceful degradation) are automatically 
+	-- accounted for when throwing the autobind function.  
+	-- 
+	------------------------------------------------------
+	autobind = function (t,location)
 		------------------------------------------------------
-		-- .autobind(t,location) 
-		--
-		-- Autobind your requests to resultant anchor tags from 
-		-- E.links.  
-		--
-		-- // More 
-		-- Fallbacks (or graceful degradation) are automatically 
-		-- accounted for when throwing the autobind function.  
-		-- 
+		-- Test that XHR will work.
 		------------------------------------------------------
-		autobind = function (t,location)
-			------------------------------------------------------
-			-- Test that XHR will work.
-			------------------------------------------------------
-			-- if true 
-			-- then
-			P( js.pkg( js.set( location, '__LOCATION__' ) ))
-			P( js.pkg( js.arrayify( t, '__rsrc__' ) ))
-			E.xhr(t)
-			-- end
-		end,
+		P( js.pkg( js.set( location, '__LOCATION__' ) ))
+		P( js.pkg( js.arrayify( t, '__rsrc__' ) ))
+		E.xhr(t)
+	end,
 
-		ab = function ()
-			E.xhr(t)
-		end,
+	ab = function ()
+		E.xhr(t)
+	end,
 
-		-- Everything here will override regular form submits. 
-		post = function ()
-		end,
+	-- Everything here will override regular form submits. 
+	post = function ()
+	end,
 
-		-- These map to functions, but div thing is not standard
-		bind = function ()
-		end,
+	-- These map to functions, but div thing is not standard
+	bind = function ()
+	end,
 
-		-- Use animation when doing basic requests.
-		animate = function ()
-		end,
+	-- Use animation when doing basic requests.
+	animate = function ()
+	end,
 
-		-- Set hide speed
-		hide = function ()
-		end,
+	-- Set hide speed
+	hide = function ()
+	end,
 
-		-- Set show speed
-		show = function ()
-		end,
+	-- Set show speed
+	show = function ()
+	end,
 }

@@ -97,7 +97,7 @@ return {
 	--
 	-- *nil
 	------------------------------------------------------
-	["alias"] = function (t)
+	alias = function (t)
 		if t 
 		 and not request.alias
 		then
@@ -115,7 +115,7 @@ return {
 	-- Set a default for our frame.
 	-- *nil
 	------------------------------------------------------
-	["default"] = function (term)
+	default = function (term)
 		request.default = term
 	end,
 
@@ -125,7 +125,7 @@ return {
 	-- Reorder links. 
 	-- *table
 	------------------------------------------------------
-	["order"] = function (t)
+	order = function (t)
 		local o = {}
 		table.sns(t,o)
 		return o	
@@ -138,7 +138,7 @@ return {
 	--
 	-- *string, *table, *number or *nil
 	------------------------------------------------------
-	["run"] = function (f,level,map)
+	run = function (f,level,map)
 		local run_res 
 		if type(f) == 'function'
 		then
@@ -171,7 +171,7 @@ return {
 	--
 	-- *nil
 	------------------------------------------------------
-	["set"] = function (e)
+	set = function (e)
 		------------------------------------------------------
 		-- Do we have only one route scheme defined? 
 		------------------------------------------------------
@@ -271,7 +271,7 @@ return {
 	--
 	-- *nil
 	------------------------------------------------------
-	["subvert"] = function (t)
+	subvert = function (t)
 		-- One value to subvert, you lucky guy you...
 		if type(t) == 'string' then
 			request['subvert'] = t 
@@ -301,7 +301,7 @@ return {
 	--
 	-- *string
 	------------------------------------------------------
-	["links"] = function (map,reps)
+	links = function (map,reps)
 		local linkstr		-- Store our prepared links here.
 		local linkframe 	-- <a href=x ... ></a>
 		local linkreps		-- Number of times to repeat string replacement.
@@ -456,7 +456,7 @@ return {
 	-- Does not serve private data.
 	-- *nil or *string
 	------------------------------------------------------
-	["serve"] = function (int,xpath)
+	serve = function (int,xpath)
 		------------------------------------------------------
 		-- Check our arguments; setup items and variables. 
 		------------------------------------------------------
@@ -554,7 +554,7 @@ return {
 			if request.err
 			then
 				return ({
-					["string"] = function ()
+					string = function ()
 						return request.err
 					end,
 					["function"] = function ()
@@ -564,7 +564,7 @@ return {
 
 			else
 				return ({
-					["string"] = function ()
+					string = function ()
 						if is.value(request.default, snames)
 						 and is.key(request.default, sevalx)
 						then 
@@ -593,7 +593,7 @@ return {
 	-- Pieces of the request that should be publicly
 	-- available.
 	------------------------------------------------------
-	["request"] = {
+	request = {
 		["block"] = function () return request.block end,
 		["default"] = request.default,
 	},
@@ -619,7 +619,7 @@ return {
 	--
 	-- *table, *string or *number
 	------------------------------------------------------
-	["on"] = function (r,f)
+	on = function (r,f)
 
 	end,
 
@@ -629,6 +629,10 @@ return {
 	-- Shuttle the XHR table.
 	-- No argument returns it, supplying t will inject
 	-- it.
+	--
+	-- Critical: Must handle strings...
+	--
+	-- *nil
 	------------------------------------------------------
 	xhr = function (t) 
 		if type(t) == 'table' then 

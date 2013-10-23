@@ -810,15 +810,21 @@ tag_wrap["open"] = function(t)
 	local this,decl = {},{}
 	if t then
 		this = table.retrieve({
-			"css", 
-			"doctype",
-			"favicon", 
-			"meta", 
-			"jscript",
-			"link", 
-			"raw", 
-			"title",
-			"script"
+			-- HTML4/5 Spec
+			"doctype",	-- Do doctype negotiation.
+			"css", 		-- Include stylesheets in <head>.
+			"favicon", 	-- Include a particular favicon in <head>, overriding [pg].
+			"meta", 		-- Meta tag encapsulations in <head>.
+			"link", 		-- Include other code via <link rel= in <head> tags.
+			"title",		-- Drop a <title> tag between <head> tags.
+			"script",	-- Drop client scripts within the <head> tags.
+
+			-- Kirk Extensions
+			"jscript",	-- Include javascript files within $DOCROOT/js
+			"xmlhttp",	-- Turn on Kirk's XMLHttpRequest handling library.
+			"raw", 		-- Drop raw text within the <head> tag.
+							-- (It's assumed you'll be handling your own markup when 
+							-- using this key.)
 		},t)
 	end
 
@@ -907,7 +913,15 @@ tag_wrap["open"] = function(t)
 
 	-- Grab additional links and includes.
 	if this.link then
-	end	
+	end
+
+	-- Activate xmlhttp object.
+	-- Automatically includes kirk.js:
+	-- refer to js/kirk.js for more on what exactly is going on.
+	if this.xmlhttp then
+		local s = '<script type="text/javascript" src="/js/kirk.js"></script>'
+		table.insert(decl,s)
+	end
 
 	------------------------------------------------------
 	-- Add to STDOUT
