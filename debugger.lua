@@ -32,26 +32,37 @@ name = {
 left = "0px",
 padding = "10px",
 bg = "black",
+mh = "14px",
 fg = "white",
+size = "10px"	-- If this is a number, then px should be auto, maybe.
 }
 
 ------------------------------------------------------
 -- tags {} 
 --
--- Each tag. 
+-- Each tag.  Populate these from the above.
 ------------------------------------------------------
 local tags = {
--- Strings or Integers
+-- All types of the following are strings or integers
+-- Configure the div.
 "name",
+
+-- Configure positioning.
 "left", "l",
 "right", "r",
 "width", "w",
 "height", "h",
 "padding", "p",
-"background-color", "bgcolor", "bg",
-"color", "fgcolor", "fg",
 
--- Table (or string) 
+-- Font messing abouts. 
+"color", "fgcolor", "fg",
+"size",
+
+-- Background styling.
+"background-color", "bgcolor", "bg",
+"background-image", "img",
+
+-- Type of "omit" can be a table (or string) 
 "omit",
 }
 
@@ -65,7 +76,7 @@ return {
 --
 -- *nil 
 ------------------------------------------------------
-	vert = function (t)
+	vertical = function (t)
 		local ctags = table.union(tags, {
 			-- Bools
 			"bottom",
@@ -75,10 +86,8 @@ return {
 		local this = table.retrieve( ctags, t )
 
 		-- Add to the defaults
-		cdef = {
-			height = "100%",
-			width = "200px",
-		}
+		cdef.height = "100%"
+		cdef.width = "200px"
 
 		-- bottom or top?
 		if this.bottom then 
@@ -93,25 +102,32 @@ return {
 		-- Send an inline style. 
 		table.insert( d_style_block, 
 			_.style({ type = "text/css" },
+				"\n#" .. 
+				((cdef.name.console) .. " {\n\t") ..
 				table.concat({
 
 					-- Console.
-					(this.name or cdef.name.console) .. " {\n\t",
+					-- (this.name or cdef.name.console) .. " {\n\t",
 						"position: fixed",
+						"overflow: auto",
 						"z-index: 99",
 						"left: " .. (this.left or cdef.left),						
-						"right: " .. (this.right or cdef.right),						
+				--		"right: " .. (this.right or cdef.right),						
 						"height: " .. (this.height or cdef.height),						
 						"width: " .. (this.width or cdef.width),						
 						"padding: " .. (this.padding or cdef.padding),						
-					--	"background-color: " .. (this.bg or cdef.bg),						
-						"color: " .. (this.fg or cdef.fg),						
-						";\n}",
+						"font-size: " .. (this.size or cdef.size),						
+						"background-color: " .. (this.bg or cdef.bg),						
+						"color: " .. (this.fg or cdef.fg),
+						"margin-bottom: " .. (this.mh or cdef.mh),
 
 					-- Timing if asked for.
 
 					-- Other omits...
-					},";\n\t")))
+					},";\n\t")
+			 .. ";\n}\n"
+			))
+
 	end,
 
 ------------------------------------------------------
@@ -122,7 +138,7 @@ return {
 --
 -- *nil 
 ------------------------------------------------------
-	horiz = function (t)
+	horizontal = function (t)
 		local this = table.retrieve({
 			"name",
 			"left", "l",
@@ -176,11 +192,18 @@ return {
 	show = function (s)
 		return table.concat({
 			table.concat( d_style_block ),
-			_.div("__console", table.concat({ 
-			"???" .. tostring(s),
-			_.div("__timing", "Page load time: " .. 19.12312312312213 .. 
-				(os.time() - TIME) ),
-			_.div("__external", "Application Information: " .. _.i("none")),
+			_.id("__console", table.concat({ 
+
+				-- Show timing information.
+				_.div("__timing", "Page load time: " .. 19.12312312312213 .. 
+					(os.time() - TIME) ),
+
+				-- Application information.
+				_.div("__external", "Application Information: " .. _.i("none")),
+
+				-- Show JS.
+
+				-- Show session.
 			}))
 		})
 	end,

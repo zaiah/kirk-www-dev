@@ -82,7 +82,7 @@ add 		= require("file.add")				-- Preload common files.
 -- S 		= require("http.sockets")			-- Send data over sockets.
 C 			= require("ds.content")				-- Get something from a database.
 as 		= require("ds.serialization")		-- Serialization formats.
-dg			= require("debugger")				-- Debugging ability.
+console	= require("debugger")				-- Debugging ability.
 die		= require("error")					-- Ridiculous error handling.
  
 R 			= function (fname) 					-- Add error pages.  
