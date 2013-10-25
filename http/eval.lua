@@ -594,8 +594,8 @@ return {
 	-- available.
 	------------------------------------------------------
 	request = {
-		["block"] = function () return request.block end,
-		["default"] = request.default,
+		block = function () return request.block end,
+		default = request.default,
 	},
 		
 	------------------------------------------------------
