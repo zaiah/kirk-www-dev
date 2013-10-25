@@ -27,6 +27,7 @@
 VERSION = "Pagan 1.1"
 LOCALE  = "EN:us"
 DATE	  = os.date('*t',os.time())
+NOW     = function () return os.date('*t', os.time()) end
 TIME 	  = os.time()
 L		  = require("i18n.locale")
 date	  = {

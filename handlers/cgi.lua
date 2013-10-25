@@ -53,11 +53,25 @@ require("handlers.cli")
 ------------------------------------------------------
 if CGI.REQUEST_METHOD == "HEAD" -- and REQUEST.HEADER["is_xml_http"] = true
 then
-HEADERS.USER["time_to_generate"] = DATE
-HEADERS.USER["time_to_ship"] = date.asctime() 
-response.abort({
-	status = 200,
-}, "")
+	-- Get NOW()
+	local this_instant = NOW()
+
+	-- Receiving the correct header here would really help.
+
+	-- Formulate a compliant date.
+	HEADERS.USER["time_to_generate"] = date.asctime()
+	HEADERS.USER["time_to_ship"] = ( function() 
+	return string.format('%s %s %d %d:%d:%d',
+		string.sub(L.days[this_instant.wday],1,3), 
+		string.sub(L.months[this_instant.month],1,3), 
+		this_instant.day, 
+		this_instant.hour, 
+		this_instant.min,
+		this_instant.sec)
+	end )()
+
+	-- Send the response.
+	response.abort({200}, "")
 end
 
 ------------------------------------------------------
