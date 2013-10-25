@@ -41,6 +41,14 @@ date	  = {
 	end
 }
 
+------------------------------------------------------
+-- The absolute thinnest stack possible doesn't need
+-- any of this.
+--
+-- You only need a response library:
+--		capable of processing headers
+--		and parsing a response
+------------------------------------------------------
 
 ------------------------------------------------------
 -- Get the configuration and include optional debug.
@@ -69,7 +77,7 @@ table 	= require("extension.tables")		-- Table extensions.
 string 	= require("extension.strings") 	-- String extensions. 
 arg		= require("extension.arg")			-- Repetitive argument processing.
 uuid		= require("extension.uuid")		-- Ridiculous error handling.
--- Y 		= require("extension.coroutine") -- Send functions through coroutines.
+-- co		= require("extension.coroutine") -- Send functions through coroutines.
 
 html  	= require("http.html").html		-- HTML encapsulation.
 _			= html									-- (syntactic sugar)
@@ -91,6 +99,10 @@ LOG 		= require("ds.log")					-- Debugging if we asked for it.
 	if not pg.pgdebug then
 		for k,_ in pairs(LOG) do
 			LOG[k] = function () return nil end end end
+response = require("http.response")
+content_types = require("http.content-types")
+xmlhttp  = require("http.xmlhttp")
+
 
 ------------------------------------------------------
 -- There must be something else that will help you
@@ -109,8 +121,7 @@ HEADERS 		 = {}			-- Pagan's HTTP headers
 HEADERS.USER = {}			-- Developer supplied HTTP headers.
 
 ------------------------------------------------------
--- crbody(queue,t) l
--- 		return CGI.SCIRPT_NAMEocal
+-- crbody(queue,t) 
 --
 -- Append queue to t, to generate a message body for
 -- stdout or stderr. 
@@ -203,13 +214,6 @@ end
 os.execute 	= nil
 dofile		= nil
 debug 	  	= nil
-
------------------------------------------------------- 
--- Grab the response methods.
-------------------------------------------------------
-response = require("http.response")
-content_types = require("http.content-types")
-xmlhttp = require("http.xmlhttp")
 
 ------------------------------------------------------ 
 -- Parse a certain backend.

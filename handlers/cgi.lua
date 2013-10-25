@@ -42,6 +42,25 @@ end
 require("handlers.cli")
 
 ------------------------------------------------------
+-- Again, the absolute thinnest stack possible doesn't 
+-- need any of this.
+--
+-- You only need a response library:
+--		capable of processing headers
+--		and parsing a response
+--
+-- (i'm trying to say, that this needs to come first.)
+------------------------------------------------------
+if CGI.REQUEST_METHOD == "HEAD" -- and REQUEST.HEADER["is_xml_http"] = true
+then
+HEADERS.USER["time_to_generate"] = DATE
+HEADERS.USER["time_to_ship"] = date.asctime() 
+response.abort({
+	status = 200,
+}, "")
+end
+
+------------------------------------------------------
 -- POST processing routines. 
 ------------------------------------------------------
 if CGI.REQUEST_METHOD == "POST"

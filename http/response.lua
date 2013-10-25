@@ -25,17 +25,21 @@ local function send_response(t,emsg)
 	if t 
 	 and is.ni(t)
 	then
-		hdin = { ["status"] = string.format("%d %s",
-						t[1], statcodes[ t[1] ]),
-					["ctype"] = t[2] or "text/html" }
+		hdin = { 
+			status = string.format("%d %s", t[1], statcodes[ t[1] ]),
+			ctype = t[2] or "text/html" 
+		}
 	elseif t
 	then
-		hdin = { ["status"] = string.format("%d %s",
-						t.status, statcodes[ t.status ]),
-					["ctype"] = t.ctype or t.content_type }
+		hdin = { 
+			status = string.format("%d %s", t.status, statcodes[ t.status ]),
+			ctype = t.ctype or t.content_type 
+		}
 	else
-		hdin = { ["status"] = 200,
-					["ctype"] = "text/html" }
+		hdin = { 
+			status = 200,
+			ctype = "text/html" 
+		}
 	end
 
 	------------------------------------------------------
@@ -88,7 +92,7 @@ return {
 	-- Send a response and abort.
 	-- *nil 
 	------------------------------------------------------
-	["abort"] = function (t,msg)
+	abort = function (t,msg)
 		send_response(t,msg)
 		os.exit()				-- Cease all execution.
 	end,
@@ -99,7 +103,7 @@ return {
 	-- Send a response.
 	-- *nil 
 	------------------------------------------------------
-	["send"] = function (t,msg)
+	send = function (t,msg)
 		send_response(t,msg)
 	end,
 }
