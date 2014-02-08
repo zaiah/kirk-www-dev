@@ -3,6 +3,21 @@
 --
 -- Functions to handle setting up cookies. 
 ------------------------------------------------------
+------------------------------------------------------
+-- diff {} 
+--
+-- Local methods for calculating different time
+-- units.
+------------------------------------------------------
+local function diff_secs(n)
+	if type(n) == 'number'
+	then
+	return n * 86400
+	else
+		response.abort({500}, "Argument supplied to diff_secs() is not a number!")
+		die.with(500, "Argument supplied to diff_secs() is not a number!")
+	end
+end
 
 return  {
    ------------------------------------------------------
@@ -29,7 +44,6 @@ return  {
 	-- *nil
    ------------------------------------------------------
 	new = function (t)
-
 		-- Define some places.
 		local security, id_string	
 		local cookie_t 				-- Table keys adhering to cookie spec.
@@ -124,7 +138,7 @@ return  {
 
 		-- Insert into header table until kirk is ready to send a response.
 		HEADERS.USER['Set-Cookie'] = cookie_t
-		-[[
+		---[[
 		response.abort({200}, table.concat({
 		  "What's in HEADERS.USER?: " .. table.dump(HEADERS.USER)
 		},"<br />"))

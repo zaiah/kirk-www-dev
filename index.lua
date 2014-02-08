@@ -77,6 +77,7 @@ is 		= require("extension.tests").is 	-- Useful tests.
 are 		= require("extension.tests").are	-- More useful tests.
 table 	= require("extension.tables")		-- Table extensions. 
 string 	= require("extension.strings") 	-- String extensions. 
+date		= require("extension.date")		-- Dates
 arg		= require("extension.arg")			-- Repetitive argument processing.
 uuid		= require("extension.uuid")		-- Ridiculous error handling.
 -- co		= require("extension.coroutine") -- Send functions through coroutines.

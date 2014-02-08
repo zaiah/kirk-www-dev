@@ -115,21 +115,6 @@ local months = {
 local date_tbl -- Hold the date table.
 
 
-------------------------------------------------------
--- diff {} 
---
--- Local methods for calculating different time
--- units.
-------------------------------------------------------
-local function diff_secs(n)
-	if type(n) == 'number'
-	then
-	return n * 86400
-	else
-		response.abort({500}, "Argument supplied to diff_secs() is not a number!")
-		die.with(500, "Argument supplied to diff_secs() is not a number!")
-	end
-end
 
 ------------------------------------------------------
 -- public methods {} 
