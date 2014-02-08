@@ -22,19 +22,19 @@ local d_style_block = {}
 -- Console defaults. 
 ------------------------------------------------------
 local cdef = {	
-name = {
- console = "__console",
- timing = "__timing",
- server_side = "__server_side",
- tables = "__tables",
- external = "__external",
-},
-left = "0px",
-padding = "10px",
-bg = "black",
-mh = "14px",
-fg = "white",
-size = "10px"	-- If this is a number, then px should be auto, maybe.
+	name = {
+		console = "__console",
+		timing = "__timing",
+		server_side = "__server_side",
+		tables = "__tables",
+		external = "__external",
+	},
+	left = "0px",
+	padding = "10px",
+	bg = "black",
+	mh = "14px",
+	fg = "white",
+	size = "10px"	-- If this is a number, then px should be auto, maybe.
 }
 
 ------------------------------------------------------
@@ -43,27 +43,27 @@ size = "10px"	-- If this is a number, then px should be auto, maybe.
 -- Each tag.  Populate these from the above.
 ------------------------------------------------------
 local tags = {
--- All types of the following are strings or integers
--- Configure the div.
-"name",
+	-- All types of the following are strings or integers
+	-- Configure the div.
+	"name",
 
--- Configure positioning.
-"left", "l",
-"right", "r",
-"width", "w",
-"height", "h",
-"padding", "p",
+	-- Configure positioning.
+	"left", "l",
+	"right", "r",
+	"width", "w",
+	"height", "h",
+	"padding", "p",
 
--- Font messing abouts. 
-"color", "fgcolor", "fg",
-"size",
+	-- Font messing abouts. 
+	"color", "fgcolor", "fg",
+	"size",
 
--- Background styling.
-"background-color", "bgcolor", "bg",
-"background-image", "img",
+	-- Background styling.
+	"background-color", "bgcolor", "bg",
+	"background-image", "img",
 
--- Type of "omit" can be a table (or string) 
-"omit",
+	-- Type of "omit" can be a table (or string) 
+	"omit",
 }
 
 

@@ -29,7 +29,8 @@ LOCALE  = "EN:us"
 DATE	  = os.date('*t',os.time())
 NOW     = function () return os.date('*t', os.time()) end
 TIME 	  = os.time()
-L		  = require("i18n.locale")
+-- L		  = require("i18n.locale")
+-- print( env )
 date	  = {
 	["asctime"] = function ()
 		return string.format('%s %s %d %d:%d:%d',
@@ -86,6 +87,7 @@ htags		= require("http.html").htags		-- List of available HTML tags
 
 D 			= require("ds.db")					-- ORM interface
 E 			= require("http.eval")				-- Routing and resources.
+cookie 	= require("http.cookie")			-- Cookie handling.
 F 			= require("file.file") 				-- File interaction
 add 		= require("file.add")				-- Preload common files.
 -- S 		= require("http.sockets")			-- Send data over sockets.
@@ -110,7 +112,6 @@ xmlhttp  = require("http.xmlhttp")
 -- create this.
 ------------------------------------------------------
 pg.dbsch	= D.generate_schema(pg.dbname) 
-
 
 ------------------------------------------------------
 -- Finally add the globals needed to make this useful.
@@ -194,17 +195,17 @@ args = {...}
 -- LOCAL_ONLY {} = Eventually these may be allowed.
 ------------------------------------------------------
 RESTRICTED = {
--- "os",
-"assert",
-"_VERSION",
-"module",
-"debug",
-"_G",
+	-- "os",
+	"assert",
+	"_VERSION",
+	"module",
+	"debug",
+	"_G",
 }
 
 LOCAL_ONLY = {
-"getfenv",
-"setfenv"
+	"getfenv",
+	"setfenv"
 }
 
 for _,e in ipairs(table.assimilate(LOCAL_ONLY,RESTRICTED))
@@ -215,6 +216,20 @@ end
 os.execute 	= nil
 dofile		= nil
 debug 	  	= nil
+
+------------------------------------------------------ 
+-- Options parsing.
+-- 
+-- Needs some way to block execution.
+------------------------------------------------------
+if pg.cli_on 
+then
+	-- Evaluate any options.
+	local oo = require("cli/options")( {...} )	
+	if type(oo) == 'table' then
+		require("cli/logic")( oo )
+	end	
+end
 
 ------------------------------------------------------ 
 -- Parse a certain backend.
@@ -231,6 +246,10 @@ then
 elseif pg.backend == 'WSAPI' or pg.backend == 'wsapi'
 then
 	require("handlers.wsapi")
+
+elseif pg.backend == 'CLI' or pg.backend == 'cli'
+then
+	require("handlers.cli")
 
 end
 

@@ -64,5 +64,25 @@ return {
 		else
 			die()
 		end
-	end
+	end,
+
+   ------------------------------------------------------
+   -- .with(n,m) 
+   --
+   -- Die with a predefined status code [n] and a message
+	-- [m]. If [m] is not specified, then kirk will 
+	-- choose the default status message and any formatting
+	-- that's been specified.
+	--
+	-- *nil
+   ------------------------------------------------------
+	with = function(n, m)
+		if not m
+		then
+			-- Include all the status codes.
+			-- Choose a status code message without any special codes.
+			-- If pg.error is set up, you can pick your own stuff.
+		end
+		response.abort({n}, tostring(m or "Server error."))
+	end,
 }
