@@ -117,6 +117,118 @@ local t = {
 	end,
  
 	------------------------------------------------------
+	-- .load(t)
+	--
+	-- Load a table that's not really a table.
+	------------------------------------------------------
+	["load"] = function (s)
+		-- lua -e "tt = s"
+		-- Return tables.
+		if type(s) == 'table'
+		then
+			return t
+
+		-- Convert a giant string to table.
+		-- If it fails, not sure where to log that yet...
+		elseif type(s) == 'string'
+		then
+			-- Find the table start.
+			local res = string.find(s, '{', 1, true)
+			if res and type(res) == 'number'
+			then
+				-- Create a table because all of the checks have passed.
+				local tt = {}		-- Store our entire table here.
+				local strt = {}	-- Store just strings here.
+
+				-- Create a table for saving certain things?
+				local save = {
+					key = false,		-- Is Lua saving a table key?
+					value = false,		-- How about a table value?
+					table = false,		-- How about a table as a table value?
+					start = false,		-- The start of a string
+					finish = false,	-- The end of a string.
+				}
+
+				local caught = {
+					rb = false,			-- Signals the start of a table key.
+					lb = false,			-- Signals the end of a table key.
+					eq = false,			-- Signals setting a table key to some value.
+					rc = false,			-- Signals start of a table.
+					lc = false,			-- Signals end of a table.
+					qu = false,			-- Signals start (or end) of a string.
+				}
+	
+				-- Move through each real character.
+				local c
+				for char = res, string.len(s)
+				do
+					-- Just do something with the one character.
+					c = string.sub(s,char,char)
+					print(char, c)
+	
+					-- Catch different string pieces.	
+					if c == '['
+					then
+						caught.rb = true
+					
+					elseif c == ']'
+					then
+						caught.lb = true
+
+					elseif c == '='
+					then
+						caught.eq = true
+
+					elseif c == '{'
+					then
+						caught.rc = true
+
+					elseif c == '}'
+					then
+						caught.lc = true
+
+					-- Two "'s together between a [ ] is considered a syntax error.
+					elseif c == '"' or c == "'"
+					then
+
+					end
+				end
+			end
+		end
+	end,
+
+	------------------------------------------------------
+	-- .dump(t)
+	--
+	-- Dump a table in text format.
+	------------------------------------------------------
+	["dump"] = function (t)
+		if t and type(t) == 'table' 
+		then
+			-- Stupid table.
+			local tt = {}
+
+			-- Run over numerically indexed tables.
+			if is.ni(t) then
+				for _,v in ipairs(t) 
+				do 
+					table.insert(tt, tostring(v)) 
+				end
+
+			-- Run over alphabetically indexed tables.
+			else  
+				for k,v in pairs(t) 
+				do 
+					table.insert(tt, string.format('["%s"] = %s', k, tostring(v))) 
+				end
+			end
+
+			-- End the table.
+			return "{" .. table.concat(tt,", ") .. "}"
+		end
+	end,
+ 
+	------------------------------------------------------
 	-- .encapsulate(t,indtype)
 	--
 	-- Add all elements to said table.

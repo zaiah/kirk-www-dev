@@ -82,6 +82,7 @@ uuid		= require("extension.uuid")		-- Ridiculous error handling.
 -- co		= require("extension.coroutine") -- Send functions through coroutines.
 
 html  	= require("http.html").html		-- HTML encapsulation.
+cookie  	= require("http.cookie")			-- Cookies
 _			= html									-- (syntactic sugar)
 htags		= require("http.html").htags		-- List of available HTML tags
 
