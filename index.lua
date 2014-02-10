@@ -29,7 +29,8 @@ LOCALE  = "EN:us"
 DATE	  = os.date('*t',os.time())
 NOW     = function () return os.date('*t', os.time()) end
 TIME 	  = os.time()
-L		  = require("i18n.locale")
+-- L		  = require("i18n.locale")
+-- print( env )
 date	  = {
 	["asctime"] = function ()
 		return string.format('%s %s %d %d:%d:%d',
@@ -76,22 +77,26 @@ is 		= require("extension.tests").is 	-- Useful tests.
 are 		= require("extension.tests").are	-- More useful tests.
 table 	= require("extension.tables")		-- Table extensions. 
 string 	= require("extension.strings") 	-- String extensions. 
+date		= require("extension.date")		-- Dates
 arg		= require("extension.arg")			-- Repetitive argument processing.
 uuid		= require("extension.uuid")		-- Ridiculous error handling.
 -- co		= require("extension.coroutine") -- Send functions through coroutines.
 
 html  	= require("http.html").html		-- HTML encapsulation.
 cookie  	= require("http.cookie")			-- Cookies
+scodes	= require("http.status")			-- Common status codes. 
 _			= html									-- (syntactic sugar)
 htags		= require("http.html").htags		-- List of available HTML tags
 
 D 			= require("ds.db")					-- ORM interface
 E 			= require("http.eval")				-- Routing and resources.
+cookie 	= require("http.cookie")			-- Cookie handling.
 F 			= require("file.file") 				-- File interaction
 add 		= require("file.add")				-- Preload common files.
 -- S 		= require("http.sockets")			-- Send data over sockets.
 C 			= require("ds.content")				-- Get something from a database.
 as 		= require("ds.serialization")		-- Serialization formats.
+render 	= require("template/render")		-- Template rendering.
 console	= require("debugger")				-- Debugging ability.
 die		= require("err/die")					-- Ridiculous error handling.
  
@@ -111,7 +116,6 @@ xmlhttp  = require("http.xmlhttp")
 -- create this.
 ------------------------------------------------------
 pg.dbsch	= D.generate_schema(pg.dbname) 
-
 
 ------------------------------------------------------
 -- Finally add the globals needed to make this useful.
@@ -195,17 +199,17 @@ args = {...}
 -- LOCAL_ONLY {} = Eventually these may be allowed.
 ------------------------------------------------------
 RESTRICTED = {
--- "os",
-"assert",
-"_VERSION",
-"module",
-"debug",
-"_G",
+	-- "os",
+	"assert",
+	"_VERSION",
+	"module",
+	"debug",
+	"_G",
 }
 
 LOCAL_ONLY = {
-"getfenv",
-"setfenv"
+	"getfenv",
+	"setfenv"
 }
 
 for _,e in ipairs(table.assimilate(LOCAL_ONLY,RESTRICTED))
@@ -216,6 +220,20 @@ end
 os.execute 	= nil
 dofile		= nil
 debug 	  	= nil
+
+------------------------------------------------------ 
+-- Options parsing.
+-- 
+-- Needs some way to block execution.
+------------------------------------------------------
+if pg.cli_on 
+then
+	-- Evaluate any options.
+	local oo = require("cli/options")( {...} )	
+	if type(oo) == 'table' then
+		require("cli/logic")( oo )
+	end	
+end
 
 ------------------------------------------------------ 
 -- Parse a certain backend.
@@ -232,6 +250,10 @@ then
 elseif pg.backend == 'WSAPI' or pg.backend == 'wsapi'
 then
 	require("handlers.wsapi")
+
+elseif pg.backend == 'CLI' or pg.backend == 'cli'
+then
+	require("handlers.cli")
 
 end
 

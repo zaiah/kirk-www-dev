@@ -64,5 +64,52 @@ return {
 		else
 			die()
 		end
-	end
+	end,
+
+   ------------------------------------------------------
+   -- .with(n,m) 
+   --
+   -- Die with a predefined status code [n] and a message
+	-- [m]. If [m] is not specified, then kirk will 
+	-- choose the default status message and any formatting
+	-- that's been specified.
+	--
+	-- *nil
+   ------------------------------------------------------
+	with = function(n, m)
+		if not m
+		then
+			-- Include all the status codes.
+			-- Choose a status code message without any special codes.
+			-- If pg.error is set up, you can pick your own stuff.
+		end
+
+--	response.abort({200}, scodes[100] )
+--	response.abort({200}, table.dump( jj ))
+--	response.abort({200}, table.dump( status ))
+		if type(m) == 'table' and not is.ni(m)
+		then
+			-- Pull the proper responses out.
+			m = table.retrieve({ "msg", "status", }, m)
+
+			-- Fill up any blank fields.
+			-- 
+			-- There is a serious mishap in render.() right now because
+			-- it only works with tables 2 levels deep.  This will change
+			-- in the future, but for now, it looks like this.
+			local errt = {
+				{ 
+					msg = m.msg or "", 
+				 	status = m.status or scodes[n],
+					code = n,
+					stackdump = "line xxx"
+				}
+			}
+
+			-- Return the final status code.
+			response.abort({n}, render.file( errt, "error" ))
+		else
+			response.abort({n}, tostring(m or "Server error."))
+		end
+	end,
 }
