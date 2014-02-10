@@ -288,7 +288,8 @@ return function (t,get_type)
 		then
 			return {
 				["schema"] = sqlmap,
-				["tables"] = sch_tables, }
+				["tables"] = sch_tables, 
+			}
 
 		------------------------------------------------------
 		-- Get tables, schema or something else specific.

@@ -93,7 +93,7 @@ add 		= require("file.add")				-- Preload common files.
 C 			= require("ds.content")				-- Get something from a database.
 as 		= require("ds.serialization")		-- Serialization formats.
 console	= require("debugger")				-- Debugging ability.
-die		= require("error")					-- Ridiculous error handling.
+die		= require("err/die")					-- Ridiculous error handling.
  
 R 			= function (fname) 					-- Add error pages.  
 	return add.err(fname) end
