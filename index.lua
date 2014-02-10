@@ -84,6 +84,7 @@ uuid		= require("extension.uuid")		-- Ridiculous error handling.
 
 html  	= require("http.html").html		-- HTML encapsulation.
 cookie  	= require("http.cookie")			-- Cookies
+scodes	= require("http.status")			-- Common status codes. 
 _			= html									-- (syntactic sugar)
 htags		= require("http.html").htags		-- List of available HTML tags
 
@@ -95,6 +96,7 @@ add 		= require("file.add")				-- Preload common files.
 -- S 		= require("http.sockets")			-- Send data over sockets.
 C 			= require("ds.content")				-- Get something from a database.
 as 		= require("ds.serialization")		-- Serialization formats.
+render 	= require("template/render")		-- Template rendering.
 console	= require("debugger")				-- Debugging ability.
 die		= require("error")					-- Ridiculous error handling.
  

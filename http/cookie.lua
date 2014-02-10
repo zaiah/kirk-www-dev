@@ -138,7 +138,7 @@ return  {
 
 		-- Insert into header table until kirk is ready to send a response.
 		HEADERS.USER['Set-Cookie'] = cookie_t
-		---[[
+		--[[
 		response.abort({200}, table.concat({
 		  "What's in HEADERS.USER?: " .. table.dump(HEADERS.USER)
 		},"<br />"))
