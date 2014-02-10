@@ -38,8 +38,12 @@ end
 local function render ( file )
 	-----------------------------------------------
 	-- Load the template file into memory.
+	-- 
+	-- IE has some strange quirks here if newlines
+	-- are omitted, and if the payload is under
+	-- 512 bytes.
 	-----------------------------------------------
-	payload = table.concat(F.totable( file ))
+	payload = table.concat(F.totable( file ),"\n")
 
 	-----------------------------------------------
 	-- Check for each word.
