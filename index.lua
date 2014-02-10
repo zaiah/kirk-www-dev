@@ -98,7 +98,7 @@ C 			= require("ds.content")				-- Get something from a database.
 as 		= require("ds.serialization")		-- Serialization formats.
 render 	= require("template/render")		-- Template rendering.
 console	= require("debugger")				-- Debugging ability.
-die		= require("err/die")					-- Ridiculous error handling.
+die		= require("error")					-- Ridiculous error handling.
  
 R 			= function (fname) 					-- Add error pages.  
 	return add.err(fname) end
