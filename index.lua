@@ -97,18 +97,39 @@ add 		= require("file.add")				-- Preload common files.
 C 			= require("ds.content")				-- Get something from a database.
 as 		= require("ds.serialization")		-- Serialization formats.
 render 	= require("template/render")		-- Template rendering.
-console	= require("debugger")				-- Debugging ability.
 die		= require("error")					-- Ridiculous error handling.
  
-R 			= function (fname) 					-- Add error pages.  
-	return add.err(fname) end
-LOG 		= require("ds.log")					-- Debugging if we asked for it.
-	if not pg.pgdebug then
-		for k,_ in pairs(LOG) do
-			LOG[k] = function () return nil end end end
 response = require("http.response")
 content_types = require("http.content-types")
 xmlhttp  = require("http.xmlhttp")
+
+------------------------------------------------------
+-- Temporary fix for evaluation of pg.
+--
+-- Every item evenutally will be controlled by 
+-- directives in pg.  With the exception of 'console',
+-- the majority of this code is deprecated and will
+-- be removed in the coming weeks.
+------------------------------------------------------
+if pg.pgdebug 
+then
+	console	= require("debugger")
+end
+
+-- old logging module
+LOG 		= require("ds.log")					-- Debugging if we asked for it.
+if not pg.pgdebug 
+then
+	for k,_ in pairs(LOG) 
+	do
+		LOG[k] = function () return nil end 
+	end 
+end
+
+-- old error handler  
+R 	= function (fname) 
+	return add.err(fname) 
+end
 
 
 ------------------------------------------------------

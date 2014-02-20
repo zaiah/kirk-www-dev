@@ -237,10 +237,6 @@ then
 	------------------------------------------------------
 	else
 		local req = srv_req("../skel/" .. pg.default.page .. ".lua")
---[[
-		local h = "" 
---]]
-
 		response.send({200}, req.msg() )
 		return true
 	end
@@ -257,9 +253,6 @@ then
 		response.send({500}, req.errmsg)
 		return false
 	else
-		if pg.pgdebug then
-			h = dg.console()
-		end
 		response.abort({200}, req.msg())
 		return true
 	end

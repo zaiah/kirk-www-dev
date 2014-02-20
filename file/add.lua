@@ -80,6 +80,14 @@ return {
 	end,
 
 	------------------------------------------------------
+	-- .asset()
+	------------------------------------------------------
+	["asset"] = function (filename)
+		F.asset("private")
+		return F.object("assets/" .. filename)
+	end,
+
+	------------------------------------------------------
 	-- .html 
 	--
 	-- Pick up a file in the pg.sink.public/sql/ directory.
