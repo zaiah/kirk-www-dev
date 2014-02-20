@@ -14,7 +14,7 @@ return {
 	--
 	-- *table
 	------------------------------------------------------
-	["app"] = function (filename)
+	app = function (filename)
 		F.asset("private")
 		return F.object("apps/" .. filename)
 	end,
@@ -27,7 +27,7 @@ return {
 	--
 	-- *table or *string
 	------------------------------------------------------
-	["err"] = function (filename, ext)
+	err = function (filename, ext)
 		F.asset("private")
 		-- add.err or send err can return proper headers and CSS as well
 		local f = F.exists("error/" .. filename, {".html",".htm",".xhtml"})
@@ -43,7 +43,7 @@ return {
 	--
 	-- *table
 	------------------------------------------------------
-	["sql"] = function (filename)
+	sql = function (filename)
 		F.asset("private")
 		return F.object("sql/" .. filename)
 	end,
@@ -55,7 +55,7 @@ return {
 	--
 	-- *table
 	------------------------------------------------------
-	["skel"] = function (filename)
+	skel = function (filename)
 		F.asset("skel")
 		local f = F.exists(filename,".lua")
 
@@ -74,7 +74,7 @@ return {
 	-- directory.
 	-- *string 
 	------------------------------------------------------
-	["profile"] = function (filename)
+	profile = function (filename)
 		F.asset("private")
 		return F.object("profiles/" .. filename)
 	end,
@@ -82,9 +82,9 @@ return {
 	------------------------------------------------------
 	-- .asset()
 	------------------------------------------------------
-	["asset"] = function (filename)
+	asset = function (filename)
 		F.asset("private")
-		return F.object("assets/" .. filename)
+		return F.object("static/" .. filename)
 	end,
 
 	------------------------------------------------------
@@ -93,7 +93,7 @@ return {
 	-- Pick up a file in the pg.sink.public/sql/ directory.
 	-- *string 
 	------------------------------------------------------
-	["html"] = function (filename)
+	html = function (filename)
 		-- If nothing found, return an empty string.	
 		F.asset("public")
 		local f = F.exists("html/" .. filename, {".html",".htm",".xhtml"})

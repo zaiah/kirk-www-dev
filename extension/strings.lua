@@ -365,6 +365,22 @@ local lib = {
 	end,
 
 	------------------------------------------------------
+	-- .filepath(t)
+	--
+	-- Output a string formatted as filepath when given 
+	-- a table.
+	--
+	-- *string
+	------------------------------------------------------
+	filepath = function (t)
+		die.when_type_not(t, "table")
+
+		-- Must evaluate os.
+		-- if within( string.lower(os.name), "windows" ) 
+		return table.concat(t, "/")
+	end,
+
+	------------------------------------------------------
 	-- .trim(str,char) 
 	--
 	-- Trim char(s) from beginning or end of str. 
