@@ -165,7 +165,7 @@ return function (vararg)
 
 		elseif ns.argc == -1
 		then
-			print("argc can be of any length")
+			-- print("argc can be of any length")
 			if not ns.argv then ns.argv = {} end
 			table.insert(ns.argv, cli_value)	
 		end

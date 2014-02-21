@@ -84,13 +84,13 @@ return {
 			-- If pg.error is set up, you can pick your own stuff.
 		end
 
---	response.abort({200}, scodes[100] )
---	response.abort({200}, table.dump( jj ))
---	response.abort({200}, table.dump( status ))
+		-- This is adding some details for 500 errors.
+		-- Over the next few weeks/days I'll be getting 
+		-- rid of these. 
 		if type(m) == 'table' and not is.ni(m)
 		then
 			-- Pull the proper responses out.
-			m = table.retrieve({ "msg", "status", }, m)
+			m = table.retrieve({ "msg", "status", "stacktrace" }, m)
 
 			-- Fill up any blank fields.
 			-- 
@@ -102,7 +102,7 @@ return {
 					msg = m.msg or "", 
 				 	status = m.status or scodes[n],
 					code = n,
-					stackdump = "line xxx"
+					stacktrace = m.stacktrace or "",
 				}
 			}
 

@@ -14,8 +14,6 @@
 -- or something.
 ------------------------------------------------------
 CGI = {} 
-
-
 for _,cv in ipairs({
 	"AUTH_TYPE",
 	"GATEWAY_INTERFACE",
@@ -40,6 +38,14 @@ do
 end
 
 require("handlers.cli")
+
+
+------------------------------------------------------
+-- Send a test request.
+------------------------------------------------------
+function tr()
+print("Status: 200 OK\nContent-Type: text/html\n\nHELLO, SUSAN!")
+end
 
 ------------------------------------------------------
 -- Again, the absolute thinnest stack possible doesn't 
@@ -84,15 +90,20 @@ then
 		CGI[val] = os.getenv(val)
 	end
 end
+
+------------------------------------------------------
+-- POST can be accessed globally just like GET.
+------------------------------------------------------
 POST = require("http.post")(CGI,CLI)
 
-
 ------------------------------------------------------ 
--- Grab the response methods.
+-- Die if the server brings back an error.
 ------------------------------------------------------
 if CGI.HTTP_INTERNAL_SERVER_ERROR then
-	response.send({500},CGI.HTTP_INTERNAL_SERVER_ERROR)
+	die.with(500, { msg = CGI.HTTP_INTERNAL_SERVER_ERROR })
+--	response.abort({500}, CGI.HTTP_INTERNAL_SERVER_ERROR)
 end	
+
 
 ------------------------------------------------------
 -- Get the cookies available.
@@ -113,17 +124,36 @@ end
 -- Load our page and parse for errors. 
 ------------------------------------------------------
 local function srv_req (file)
-	local loader = ({loadfile( file )})
-	return {
-		msg = loader[1],
-		errmsg = loader[2],
-	}
-end	
+	-- Wrapper to return loadfile()
+	function run()
+		return loadfile( file )()
+	end
 
+	-- Try to run the index, and your skel files, etc. 
+	status, result = xpcall( run, debug.traceback )
+
+	-- If the loadfile was good, bring back the payload.
+	if status
+	then
+		return result
+	-- If not, cut execution with a 500 error.
+	else
+		-- Chop traceback.
+		local c = string.find( result, "\n" )
+		local m = string.sub( result, 1, (c - 1)) 
+		local s = string.sub( result, (c + 1), -1)
+		s = string.gsub( s, "\t", "  " )
+		s = string.gsub( s, "stack traceback:", "" )
+
+		-- Stackdump
+		die.with(500,{ msg = m, stacktrace = s}) 	
+	end	
+end	
 
 ------------------------------------------------------
 -- Start at everything besides the root.
 ------------------------------------------------------
+local req
 if CGI.PATH_INFO ~= "/"
 then
 
@@ -145,8 +175,9 @@ then
 	-- Make the url more accessible.
 	------------------------------------------------------
 	for v in url do
-		data.url[count] = v
-		count				 = count + 1
+		table.insert(data.url, v)
+--		data.url[count] = v
+--		count				 = count + 1
 	end
 
 	------------------------------------------------------
@@ -180,42 +211,28 @@ then
 					tostring(pg.pages[rname] .. "/" .. pg.default.page)
 				}) 
 				do
-
 					------------------------------------------------------
 					-- If we found the page, great. 
-					-- See if there are any errors at req.errmsg.
 					------------------------------------------------------
 					srv = F.exists(f,".lua")
 					if srv.status == true
 					then 
-					--	local req = srv_req("../skel/" .. srv.handle)
-						local req = srv_req(srv.handle)
-
 						------------------------------------------------------
-						-- Return error if we run into syntax errors.
-						--
-						-- Still doesn't work.  When html has blank args
-						-- error is not propagating.
+						-- Execution will stop here if there were problems.
 						------------------------------------------------------
-						if req.errmsg 
-						then
-							response.send({500}, req.errmsg)
-							return false
+						req = srv_req(srv.handle)
 
 						------------------------------------------------------
 						-- Return our nicely formatted skel if not.
 						------------------------------------------------------
-						else
-							response.send({200}, req.msg())
-							if pg.pgdebug then 
-								h = dg.console({
-									server_side = true,
-									tables = true,
-									external = true,
-									timing = os.time(), -- function to start and stop.	
-								})
-							end
-							return true
+						response.send({200}, req)
+						if pg.pgdebug then 
+							h = dg.console({
+								server_side = true,
+								tables = true,
+								external = true,
+								timing = os.time(), -- function to start and stop.	
+							})
 						end
 					end -- end if srv.status == true
 				end -- end for _,f in ipairs({
@@ -230,11 +247,10 @@ then
 		 and is_page
 		then
 			response.send({404}, add.err("404"))
-			return false
 		else
-			local req = srv_req("../skel/" .. pg.default.page .. ".lua")
-			response.send({200}, req.msg() )
-			return true
+			req = srv_req("../skel/" .. pg.default.page .. ".lua")
+		--	response.send({200}, req.msg() )
+			response.send( {200}, req )
 		end
 
 	------------------------------------------------------
@@ -243,9 +259,9 @@ then
 	-- Only needs to run if NOTHING is found.
 	------------------------------------------------------
 	else
-		local req = srv_req("../skel/" .. pg.default.page .. ".lua")
-		response.send({200}, req.msg() )
-		return true
+		req = srv_req("../skel/" .. pg.default.page .. ".lua")
+	--	response.send({200}, req.msg() )
+		response.send( {200}, req )
 	end
 
 ------------------------------------------------------
@@ -254,14 +270,8 @@ then
 ------------------------------------------------------
 elseif CGI.PATH_INFO == "/"
 then
-	local req = srv_req("../skel/" .. pg.default.page .. ".lua")
-	if req.errmsg 
-	then
-		response.send({500}, req.errmsg)
-		return false
-	else
-		response.abort({200}, req.msg())
-		return true
-	end
+	req = srv_req("../skel/" .. pg.default.page .. ".lua")
+	-- response.abort({200}, req.msg())
+	response.abort( {200}, req )
 end
 

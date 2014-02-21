@@ -240,7 +240,7 @@ end
 
 os.execute 	= nil
 dofile		= nil
-debug 	  	= nil
+-- debug 	  	= nil
 
 ------------------------------------------------------ 
 -- Options parsing.
@@ -262,7 +262,7 @@ end
 if pg.backend == 'CGI' or pg.backend == 'cgi'
  or not pg.backend
 then
-	require("handlers.cgi")
+	require("handlers.cgi-2")
 
 elseif pg.backend == 'FCGI' or pg.backend == 'fcgi'
 then
