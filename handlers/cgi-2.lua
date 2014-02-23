@@ -1,9 +1,7 @@
 ------------------------------------------------------
 -- cgi.lua 
 --
--- A CGI handler. 
---
--- *nil
+-- A CGI handler for Kirk.
 ------------------------------------------------------
 
 ------------------------------------------------------
@@ -37,15 +35,7 @@ do
 	CGI[cv] = os.getenv(cv)
 end
 
-require("handlers.cli")
-
-
-------------------------------------------------------
--- Send a test request.
-------------------------------------------------------
-function tr()
-print("Status: 200 OK\nContent-Type: text/html\n\nHELLO, SUSAN!")
-end
+-- require("handlers.cli")
 
 ------------------------------------------------------
 -- Again, the absolute thinnest stack possible doesn't 
@@ -136,6 +126,7 @@ local function srv_req (file)
 	if status
 	then
 		return result
+
 	-- If not, cut execution with a 500 error.
 	else
 		-- Chop traceback.
@@ -146,17 +137,79 @@ local function srv_req (file)
 		s = string.gsub( s, "stack traceback:", "" )
 
 		-- Stackdump
-		die.with(500,{ msg = m, stacktrace = s}) 	
+		die.with(500,{ msg = m, stacktrace = s }) 	
 	end	
 end	
+
+------------------------------------------------------
+-- CGI lua
+------------------------------------------------------
+local function srv_default()
+	if pg.default and pg.default.page
+	then
+		F.asset("skel")
+		local f = F.exists( pg.default.page .. ".lua" )
+		if f.status 
+		then
+			req = srv_req( f.handle )  -- "../skel/" .. pg.default.page .. ".lua")
+			response.abort( {200}, req )
+		else
+			die.with(500, { 
+				msg = "No file '" .. pg.default.page .. ".lua' could be found at path '" .. pg.path .. "/skel.'",
+				stacktrace = "None."
+			})
+		end
+	else
+		die.with(200, { 
+			msg = [[Kirk is working, but no default page has been 
+			defined in ]] .. pg.path .. "/data/definitions.lua",
+			stacktrace = "Try setting the value of 'page' in definitions.lua to "
+			.. "a file name under the \n directory " .. pg.path .. "/skel."
+		})
+	end
+end
 
 ------------------------------------------------------
 -- Start at everything besides the root.
 ------------------------------------------------------
 local req
-if CGI.PATH_INFO ~= "/"
+local file_check
+local rname
+------------------------------------------------------
+-- We must be at the root, so evaluate a default
+-- request.
+------------------------------------------------------
+if CGI.PATH_INFO == "/"
 then
+	if pg.default and pg.default.page
+	then
+		F.asset("skel")
+		local f = F.exists( pg.default.page .. ".lua" )
+		if f.status 
+		then
+			req = srv_req( f.handle )  -- "../skel/" .. pg.default.page .. ".lua")
+			response.abort( {200}, req )
+		else
+			die.with(500, { 
+				msg = "No file '" .. pg.default.page .. ".lua' could be found " .. 
+				"at path '" .. pg.path .. "/skel.'",
+				stacktrace = "None."
+			})
+		end
+	else
+		die.with(200, { 
+			msg = [[Kirk is working, but no default page has been 
+			defined in ]] .. pg.path .. "/data/definitions.lua",
+			stacktrace = "Try setting the value of 'page' in definitions.lua to "
+			.. "a file name under the \n directory " .. pg.path .. "/skel."
+		})
+	end
 
+------------------------------------------------------
+-- Serve all resources besides /.
+------------------------------------------------------
+elseif CGI.PATH_INFO ~= "/"
+then
 	------------------------------------------------------
 	-- Chop the path and save it.
 	------------------------------------------------------
@@ -176,8 +229,6 @@ then
 	------------------------------------------------------
 	for v in url do
 		table.insert(data.url, v)
---		data.url[count] = v
---		count				 = count + 1
 	end
 
 	------------------------------------------------------
@@ -195,7 +246,7 @@ then
 	then
 		for level = table.maxn(data.url),1,-1 
 		do	
-			local rname = data.url[level] -- Resource name.
+			rname = data.url[level] -- Resource name.
 
 			------------------------------------------------------
 			-- Serve for resources and only if we found no error.
@@ -204,36 +255,35 @@ then
 			then
 				is_page = true
 				F.asset("skel")
-				for _,f in ipairs({
-					-- Look for a skel in the top-level, then...
-					tostring(pg.pages[rname]),
-					-- ...look for a skel in respectively named directory.
-					tostring(pg.pages[rname] .. "/" .. pg.default.page)
-				}) 
+
+				-- Check a certain set of files. 
+				if pg.default and pg.default.page
+				then
+					file_check = { 
+						pg.pages[rname],
+						pg.pages[rname] .. "/" .. pg.default.page
+					}
+				else
+					file_check = { pg.pages[rname] }
+				end
+
+				------------------------------------------------------
+				-- Loop through each file.
+				------------------------------------------------------
+				for __,ffile in ipairs( file_check )
 				do
 					------------------------------------------------------
 					-- If we found the page, great. 
 					------------------------------------------------------
-					srv = F.exists(f,".lua")
+					srv = F.exists(ffile,".lua")
+
+					------------------------------------------------------
+					-- Serve the resource if it was found. 
+					------------------------------------------------------
 					if srv.status == true
 					then 
-						------------------------------------------------------
-						-- Execution will stop here if there were problems.
-						------------------------------------------------------
 						req = srv_req(srv.handle)
-
-						------------------------------------------------------
-						-- Return our nicely formatted skel if not.
-						------------------------------------------------------
-						response.send({200}, req)
-						if pg.pgdebug then 
-							h = dg.console({
-								server_side = true,
-								tables = true,
-								external = true,
-								timing = os.time(), -- function to start and stop.	
-							})
-						end
+						response.abort({200}, req)
 					end -- end if srv.status == true
 				end -- end for _,f in ipairs({
 			end -- end if is.key(rname, pg.pages) 
@@ -246,11 +296,12 @@ then
 		if not srv.status
 		 and is_page
 		then
-			response.send({404}, add.err("404"))
+			-- Die will be handling the other 404's...
+			die.with(404, {
+				msg = "Resource at '<i>/" .. rname .. "</i>' could not be found."
+			})
 		else
-			req = srv_req("../skel/" .. pg.default.page .. ".lua")
-		--	response.send({200}, req.msg() )
-			response.send( {200}, req )
+			srv_default()
 		end
 
 	------------------------------------------------------
@@ -259,19 +310,9 @@ then
 	-- Only needs to run if NOTHING is found.
 	------------------------------------------------------
 	else
-		req = srv_req("../skel/" .. pg.default.page .. ".lua")
+		srv_default()
+	--	req = srv_req("../skel/" .. pg.default.page .. ".lua")
 	--	response.send({200}, req.msg() )
-		response.send( {200}, req )
+	--	response.send( {200}, req )
 	end
-
-------------------------------------------------------
--- We must be at the root, so evaluate a default
--- request.
-------------------------------------------------------
-elseif CGI.PATH_INFO == "/"
-then
-	req = srv_req("../skel/" .. pg.default.page .. ".lua")
-	-- response.abort({200}, req.msg())
-	response.abort( {200}, req )
 end
-

@@ -8,8 +8,6 @@
 -- 2. what exactly caused it to fall apart.
 -- 3. Illustrate which parameter caused the failure. 
 ------------------------------------------------------
-
-
 return {
 ------------------------------------------------------
 -- when_type_not(t, ttc)
