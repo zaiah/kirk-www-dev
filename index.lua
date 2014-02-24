@@ -89,7 +89,7 @@ _			= html									-- (syntactic sugar)
 htags		= require("http.html").htags		-- List of available HTML tags
 
 D 			= require("ds.db")					-- ORM interface
-E 			= require("http.eval")				-- Routing and resources.
+E 			= require("http.eval2")				-- Routing and resources.
 cookie 	= require("http.cookie")			-- Cookie handling.
 F 			= require("file.file") 				-- File interaction
 add 		= require("file.add")				-- Preload common files.
@@ -206,13 +206,55 @@ P = function (queue) crbody(queue,STDOUT) end
 B = function (queue) crbody(queue,STDERR) end
 
 ------------------------------------------------------
--- CLI {} 
+-- Tables for different server backends.
+------------------------------------------------------
+-- local CLI = {}
+-- local CGI = {}
+-- local FCGI = {}
+-- local WSGI = {}
+-- local WSAPI = {}
+
+------------------------------------------------------
+-- pseudo CLI 
 --
 -- Command line interface mode and options. 
 -- WARNING: Will be ported later.
 ------------------------------------------------------
-local CLI = {}
 args = {...}
+
+if table.maxn(args) == 1 or table.maxn(args) > 1
+then
+-- For interface testing...
+CGI = {
+--	GATEWAY_INTERFACE = ,
+	PATH_INFO = "/",
+	PATH_TRANSLATED = "/",
+--	QUERY_STRING = "/",
+--	REMOTE_ADDR,
+	REQUEST_METHOD = "GET",
+--	SCRIPT_NAME = ,
+--	HTTP_COOKIE,
+--	HTTP_INTERNAL_SERVER_ERROR,
+	SERVER_NAME = pg.domain,
+	SERVER_PORT = pg.port or 80,
+--	SERVER_PROTOCOL = ,
+	SERVER_SOFTWARE = "Kirk",
+--	REMOTE_HOST,
+--	REMOTE_IDENT,
+--	REMOTE_USER,
+}
+
+-- Tell the CGI handler that we've already filled this table.
+CGI_GEN = true 
+
+-- Move through the options in a clumsy manner.
+for x,n in ipairs(args) do
+	if n == 'path' then CGI.PATH_INFO = args[x + 1]
+	elseif n == 'cgi' then
+		for x,y in pairs(CGI) do P(x .. '\t' .. y) end
+	end 
+end
+end
 
 ------------------------------------------------------
 -- Security and overrides.
@@ -247,6 +289,7 @@ dofile		= nil
 -- 
 -- Needs some way to block execution.
 ------------------------------------------------------
+--[[
 if pg.cli_on 
 then
 	-- Evaluate any options.
@@ -255,6 +298,7 @@ then
 		require("cli/logic")( oo )
 	end	
 end
+--]]
 
 ------------------------------------------------------ 
 -- Parse a certain backend.

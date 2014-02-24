@@ -5,6 +5,21 @@
 ------------------------------------------------------
 local t = {
 	------------------------------------------------------
+	-- .set(t)
+	--
+	-- Set all indices in t to val, regardless of whether
+	-- or not table is numerically or alphabetically 
+	-- indexed.
+	------------------------------------------------------
+	set = function(t, val)
+
+		if type(t) ~= "table"
+		then
+		-- die.xtype(t, "table")
+		end	
+	end,
+
+	------------------------------------------------------
 	-- .load(t)
 	--
 	-- Load a table that's not really a table.

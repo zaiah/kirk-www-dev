@@ -11,31 +11,41 @@
 -- All of these need to be stored in like data.cgi
 -- or something.
 ------------------------------------------------------
-CGI = {} 
-for _,cv in ipairs({
-	"AUTH_TYPE",
-	"GATEWAY_INTERFACE",
-	"PATH_INFO",
-	"PATH_TRANSLATED",
-	"QUERY_STRING",
-	"REMOTE_ADDR",
-	"REQUEST_METHOD",
-	"SCRIPT_NAME",
-	"HTTP_COOKIE",
-	"HTTP_INTERNAL_SERVER_ERROR",
-	"SERVER_NAME",
-	"SERVER_PORT",
-	"SERVER_PROTOCOL",
-	"SERVER_SOFTWARE",
-	"REMOTE_HOST",
-	"REMOTE_IDENT",
-	"REMOTE_USER",
-})
-do
-	CGI[cv] = os.getenv(cv)
-end
+if not CGI 
+then
+	-- Make a global CGI table here.
+	CGI = {}
 
--- require("handlers.cli")
+	-- Move through environment variables.
+	for _,cv in ipairs({
+		"AUTH_TYPE",
+		"GATEWAY_INTERFACE",
+		"PATH_INFO",
+		"PATH_TRANSLATED",
+		"QUERY_STRING",
+		"REMOTE_ADDR",
+		"REQUEST_METHOD",
+		"SCRIPT_NAME",
+		"HTTP_COOKIE",
+		"HTTP_INTERNAL_SERVER_ERROR",
+		"SERVER_NAME",
+		"SERVER_PORT",
+		"SERVER_PROTOCOL",
+		"SERVER_SOFTWARE",
+		"REMOTE_HOST",
+		"REMOTE_IDENT",
+		"REMOTE_USER",
+	})
+	do
+		CGI[cv] = os.getenv(cv)
+	end
+
+	-- Transform each value in t with the function f.
+	-- Can possibly set a chain by using a table.
+	-- (Formerly was table.populate..., and not too 
+	-- descriptive.) 
+	-- table.transform(t, f)
+end
 
 ------------------------------------------------------
 -- Again, the absolute thinnest stack possible doesn't 
@@ -47,6 +57,8 @@ end
 --
 -- (i'm trying to say, that this needs to come first.)
 ------------------------------------------------------
+if CGI
+then
 if CGI.REQUEST_METHOD == "HEAD" -- and REQUEST.HEADER["is_xml_http"] = true
 then
 	-- Get NOW()
@@ -315,4 +327,5 @@ then
 	--	response.send({200}, req.msg() )
 	--	response.send( {200}, req )
 	end
+end
 end

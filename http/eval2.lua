@@ -1,65 +1,10 @@
 ------------------------------------------------------
 -- eval.lua
 --
--- Standardizes the response to resource requests.
+-- Creates an interface for crafting the response to
+-- resource requests.
 --
--- // Rules 
--- eval.lua is globally included as E.  No additional
--- calls are needed to introduce it within the scope 
--- of your application. 
---
--- // More
--- When eval.lua is properly set within an application,
--- at least three functions will be called.   
---
--- First, E.set({t}) with a table [t], will stage a 
--- list of available resources to be used with an 
--- application.  
---
--- If [t] is a numerically indexed table,
--- like <pre>{ "john", "mary", "joan" }</pre>, then
--- there are no other rules needed to reference that
--- block of resources.  
---
--- If [t] is an alphabetically indexed table, <pre>
--- { ["joan"] = "x", ["joe"] = "bob" }</pre>, then
--- subsequent calls to eval.lua will need you to
--- explicitly define which module you'd like to modify.
---
--- Second, you'll have to utilize E.default(t). When
--- E.set() has been used to define a numerically indexed
--- set of resources, a string [t] must be used to 
--- define a default resource.  However, if E.set() was
--- used to define alphabetically indexed resources, then
--- [t] must be a table (or more specifically a key-value
--- pair) defining a default resource. 
---
--- Finally, E.serve([t],n) must be called to return
--- the body of the resource defined under E.set().  
--- This form of E.serve([t],n), is only used when 
--- E.set() has been used to define an alphabetically 
--- indexed table of resources.   The [t] may be omitted
--- when E.set() has been used to define numerically 
--- indexed resources. 
---
--- The [n] portion of E.serve() will always reference
--- a number that defines which portion of the URL to use
--- as the "resource trigger" (if you will).  So calls 
--- like:
--- <pre>
--- E.serve(2) 
--- </pre>
--- would search a URL (http://pagan.vokayent.com/x/y/z) 
--- for the second node.  (In this case, "y".).  E.serve()
--- will then check the table supplied in E.set() for
--- anything mapped to "y".  If nothing is available, 
--- E.serve() will supply the results of whatever is mapped
--- as default by E.default(). 
---
--- Any additional functions and modules work this way.
--- If modifying resources in alphabetically referenced
--- tables, the name of the module you want modified
--- will always be the first argument.
+-- By this definition, E.links() does not belong here.
 ------------------------------------------------------
 
 -- Include dependencies.
@@ -77,11 +22,39 @@ local xhrt = {}			-- Table of modules that should only be
 local rsrc
 local root 
 
--- XHR has to be accessible to a few different members.
--- This may possibly be something that needs to be handled
--- another way.
--- like:
--- members = { 'x' 'y' 'z' } where members are "required()" during serving 
+------------------------------------------------------
+-- href {}
+--
+-- Table to hold all hypertext reference formatting
+-- data.
+------------------------------------------------------
+local href = {
+   as      = "string",
+   root    = false, 
+   class   = false,
+   id      = false,
+   string  = false,
+   subvert = false,
+   group   = false,
+   alias   = false
+}
+
+------------------------------------------------------
+-- xmlhttp {}
+--
+-- Table to hold XMLHttpRequest transport parameters.
+------------------------------------------------------
+local xmlhttp = {
+
+}
+
+------------------------------------------------------
+-- eval {}
+--
+-- Table to hold elements used to evaluate the HTTP
+-- request.
+------------------------------------------------------
+
 
 ------------------------------------------------------
 -- eval {}
@@ -302,24 +275,31 @@ return {
 	end,
 
 	------------------------------------------------------
-   -- .nlinks( )
+   -- .links( )
 	-- 
 	-- Flexible link output for resources defined with 
 	-- E.set(). Takes a table with arguments.
 	--
-	-- {
-	--  as 		= [table, string] -- Output link list as table or string.
-	--  root 	= [string]       	-- Creates href relative to [root].
-	--  class 	= [string]      	-- A class name for each.
-	--  id		= [bool]          -- Use the resource name as an id.
-	--  string  = [string]        -- Use this string as the link dump.
-	--  subvert = [string, table] -- Do not include these resources as links.
-	--  group   = [string]        -- Choose a resource group if many have
-   --                            -- been specified.
-   --  alias   = [table]         -- Choose which resources to serve
-	--                            -- with an entirely different link name.
-	-- }
+	-- E.links({
+	--    as      = [table, string] 	-- Output link list as table or string.
+	--    root    = [string]        	-- Creates href relative to [root].
+	--    class   = [string]       	-- A class name for each.
+	--    id      = [bool]          	-- Use the resource name as an id.
+	--    string  = [string]        	-- Use this string as the link dump.
+	--    subvert = [table, string] 	-- Do not include these resources as links.
+	--    group   = [string]        	-- Choose a resource group if many have
+	--                             	-- been specified.
+	--    alias   = [table]         	-- Choose which resources to serve
+	--                             	-- with an entirely different link name.
+	-- })
 	------------------------------------------------------
+	links = function (t)
+		-- If [t] is a string, then auto-output the links
+		-- for the group thrown in [t], dying with an error
+		-- if that group does not exist.
+
+		-- Get the keys from [t] 
+	end,
 
 	------------------------------------------------------
 	-- .links( map,reps )
@@ -333,7 +313,7 @@ return {
 	--
 	-- *string
 	------------------------------------------------------
-	links = function (map,reps)
+	nlinks = function (map,reps)
 		local linkstr		-- Store our prepared links here.
 		local linkframe 	-- <a href=x ... ></a>
 		local linkreps		-- Number of times to repeat string replacement.
