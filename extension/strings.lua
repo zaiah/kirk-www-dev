@@ -360,7 +360,7 @@ local lib = {
 	-- *string
 	------------------------------------------------------
 	url = function (t)
-		die.when_type_not(t, "table")
+		die.xtype(t, "table", "string.url")
 		return "/" .. table.concat(t,"/")
 	end,
 

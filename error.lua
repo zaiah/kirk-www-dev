@@ -9,7 +9,67 @@
 -- 3. Illustrate which parameter caused the failure. 
 ------------------------------------------------------
 
+------------------------------------------------------
+-- Valid Lua datatypes.
+------------------------------------------------------
+local lua_datatypes = {	
+	"function",
+	"userdata",
+	"nil",
+	"string",
+	"number",
+	"table",
+	"boolean"
+}
 
+
+------------------------------------------------------
+-- local up_chain(n, discard)
+--
+-- Traverse up the traceback chain n times for a 
+-- function name.
+--
+-- Depending on where up_chain is thrown here different
+-- codes will be in the message.
+--
+-- discard will choose whether or not you want to 
+-- drop the traceback stream.
+--
+-- *string
+------------------------------------------------------
+local function up_chain(n, discard)
+	-- Get the traceback.
+	local d = debug.traceback()
+
+
+	-- First, find the n line from the top of the traceback.
+--	local a = string.find( d, "\n", 0, true )
+	j = {}
+	for line in string.gmatch(d, "\n([%a%w%s%.%_%?%/%:%(%)%'%-]+)")
+--	for line in string.gmatch(d, "\t[%a%w%s%p]+")
+	do
+		table.insert(j, "[bob_]" .. line .. "[_bob]")
+	end	
+	response.abort({200}, table.concat({
+		_.pre( d ),
+		table.concat(j,"<br />")
+	}))
+
+	-- Depending on line number, you'll also have to
+	-- check whether this function is an interface
+	-- function.  If it's an app, it will be hard
+	-- to pin down exactly where the issue took place
+	-- (and more importantly, find which "namespace"
+	-- this function has failed under.)
+	--
+	-- For example, you call pony = add.app("x")
+	-- and function pony.monkey() fails.
+	-- Stack traceback will only tell you that a
+	-- function monkey failed in a page called x.
+	--
+	-- How do you get it to tell you that monkey
+	-- failed?
+end
 
 ------------------------------------------------------
 -- local die(t)
@@ -20,14 +80,14 @@
 -- t can be either a table or string. If it's a table
 -- it accepts the following parameters:
 -- t {
--- 	msg = [string]    		-- A message that can include
---                      		-- any of the following when
---                      		-- crafting an error message:
---                      		-- ["%f", "%t", "%o", "%a" ]
---    __function = [string]   -- Define a function name for the error.
---    __and      = [table]    -- Define multiple items.
---    __or       = [table]    -- One or both of these have caused error.
---    __type     = [string]   -- Must be of a Lua type.
+-- 	msg = [string] -- A message that can include
+--                   -- any of the following when
+--                   -- crafting an error message:
+--                   -- ["%f", "%t", "%o", "%a" ]
+--    fn = [string]  -- Define a function name for the error.
+--    an = [table]   -- Define multiple items.
+--    on = [table]   -- One or both of these have caused error.
+--    tn = [string]  -- Must be of a Lua type.
 -- }
 --
 -- *nil
@@ -56,11 +116,11 @@ local function die(t)
 	-- Check t if there is one.
 	local t = table.retrieve({ 
 		"msg", 
-		"__function", 
-		"__type",
-		"__and",
-		"__or",
-	},t)
+		"fn", 
+		"tn",
+		"an",
+		"on",
+	}, t)
 
 	-- Create some local spaces.
 	local m
@@ -70,41 +130,46 @@ local function die(t)
 	if t and t.msg 
 	then
 		-- Catch any function names.
-		if t.__function and string.find( t.msg, "%f", 0, true )
+		if t.fn and type(t.fn) == 'string' and string.find(t.msg, "%f", 0, true)
 		then
 			-- Using tags with the function name could be SUPER cool...
 			t.msg = string.gsub( t.msg, '%%f', 
-			'<b>function</b> <a class=on500 href="/"><i>' .. t.__function .. '()</i></a>' ) 
+			'<b>function</b> <a class=on500 href="/"><i>' .. t.fn .. '()</i></a>') 
 		-- Die becauase function name is needed.
-		else
+		elseif t.fn then
 			die_default("No function name(s) supplied within module die.")
 		end
 
 		-- Catch type names.
-		if t.__type and string.find( t.msg, "%t", 0, true )
+		---[[
+		if t.tn and string.find( t.msg, "%t", 0, true )
 		then
 			-- Using tags with the function name could be SUPER cool...
 			t.msg = string.gsub( t.msg, '%%t', 
-				'<b>type</b> <i>'..t.__type..'</i>' ) 
+				'<b>type</b> <i>'..t.tn..'</i>' ) 
 			
-		else
+		elseif t.tn then
 			die_default("No type name(s) supplied within module die.")
 		end
+		--]]
 
-		-- More complicated items with and & or.
---[[
-		if t["__or"] and string.find( t.msg, "%o", 0, true )
+		-- Or's
+		if t.on and string.find( t.msg, "%o", 0, true )
 		then
-		else
+			t.msg = string.gsub( t.msg, '%%o', table.concat(t.on, " or "))
+				
+		elseif t.on then
 			die_default("No <i>or</i> values supplied within module die.")
 		end
 
-		if t["__and"] and string.find( t.msg, "%a", 0, true )
+		-- and's
+		if t.an and string.find( t.msg, "%a", 0, true )
 		then
-		else
+			t.msg = string.gsub( t.msg, '%%a', table.concat(t.an, " and "))
+
+		elseif t.an then
 			die_default("No <i>and</i> values supplied within module die.")
 		end
---]]
 
 		-- Finally set message. 
 		m = t.msg
@@ -234,11 +299,12 @@ return {
 	-- *nil
    ------------------------------------------------------
 	xerror = function (s)
+		local fname = "die.xerror"
 		if type(s) ~= "string"
 		then
 			die({
-				funct = "die.xerror()",
-				msg = "%f requires a string as its first argument."
+				fn		= fname,
+				msg 	= "%f requires a string as its first argument."
 			}) 
 				
 		else	
@@ -259,37 +325,48 @@ return {
 	--
 	-- *nil
    ------------------------------------------------------
-	xtype = function (e, vtype)
-		local fname = "die.xtype"
+	xtype = function (e, vtype, fname)
+		-- local fname = up_chain(1,true)
+		local fname = fname or "die.xtype"
+
 		if not e and not vtype
 		then
 			die({
-				__function = fname,
+				fn = fname,
 				msg = "No arguments received at %f." 
 			}) 
 
 		elseif not vtype
 		then
 			die({
-				__function = fname,
+				fn = fname,
 				msg = "No secondary argument received at %f." 
 			}) 
----[[
+
 		elseif type(vtype) == 'table'
 		then
 			local is_type = false
 			if not is.ni(vtype)
 			then
 				die({
-					__function = fname,
-					__or		  = { "t:string", "t:table:n" },
-					msg = "Secondary argument to %f must be of %o"
-					-- msg = "Secondary argument to %f must be of type string or a numerically indexed table."
+					fn 	= fname,
+					on	  	= { "type string", "numerically indexed table" },
+					msg	= "Secondary argument to %f must be of %o."
 				})
 			else
 				-- Go through each.
-				for __,element in ipairs(vtype)
+				for xn,element in ipairs(vtype)
 				do
+					-- Go through all the Lua types here.
+					if not is.value(tostring(element), lua_datatypes) 
+					then
+						die({
+							fn = fname,
+							msg = "Value at index: " .. xn .. " within second " ..
+							"argument received at %f is not a valid Lua datatype."
+						})
+					end
+
 					if type(e) == element
 					then
 						is_type = true	
@@ -300,14 +377,13 @@ return {
 				-- Die if is_type is still false.
 				if not is_type
 				then
-				die({
-					__function 	= "die.xerror()",
-					__type 		= vtype,
-					msg = "First argument to %f is not of %t." 
-				}) 
+					die({
+						fn 	= fname, 
+						on 	= { unpack(vtype) },
+						msg   = "First argument to %f is not a %o." 
+					}) 
 				end
 			end
---]]
 
 		elseif tostring(type(e)) ~= tostring(vtype)
 		then
@@ -317,9 +393,9 @@ return {
 			-- every function he/she wished to write an error 
 			-- for.	
 			die({
-				__function 	= fname,
-				__type 		= vtype,
-				msg 			= "First argument to %f is not of %t." 
+				fn 	= fname,
+				tn 	= vtype,
+				msg 	= "First argument to %f is not of %t." 
 			}) 
 		end
 	end,
