@@ -1,3 +1,5 @@
+
+
 E.links({
    as      = [table, string] 		-- Output link list as table or string.
    root    = [string]        		-- Creates href relative to [root].
@@ -41,6 +43,10 @@ E.fail({                            -- Fail with a 404 if resources at n are not
 	                                -- Keep in mind that pg can also serve custom error pages.
 })              
 
+-- Automatic strict order is kind of tough to do:
+-- save number of records of whatever table(s) are loaded.
+-- you should be able to work backwards now (table.index() vs. table.where())
+
 E.default(x, [{a = "b", c = "d"}])  -- Set a default resource
 
 E.include(n, "home")                -- Kind of like pg.pages, but instead of statically defining
@@ -49,6 +55,20 @@ E.include(n, "home")                -- Kind of like pg.pages, but instead of sta
 E.run(f, level)                  	-- Run a function on receipt of a resource.
 
 E.serve(n, [group])             	-- Serve resource at data.url[n] (at group <group> if specified)
+									
+									
+xmlhttp and fail seem to be the only things that can be defined ahead of time.
+Before links, serve, include and run can run, the set table MUST be evaluated.
 
-E.autobind(t, location)             -- Expect payloads over XMLHttp for each resource in [t], where
-                                    -- [t] can be either string or table.
+
+Gene Ammons - Canadian Sunset
+
+x die.xnil
+x table.set(t, val) - Set every index in t to val. (val can't be nil...)
+table.depth(t)    - Return the maximum depth of a table.
+	eval_eval()
+	as.json()
+	render.file - tables...
+
+eval_eval()      
+	Test the depth of the eval table (can currently be no more than 2)kkk

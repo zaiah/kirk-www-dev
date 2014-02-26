@@ -101,7 +101,7 @@ die		= require("error")					-- Ridiculous error handling.
  
 response = require("http.response")
 content_types = require("http.content-types")
-xmlhttp  = require("http.xmlhttp")
+-- xmlhttp  = require("http.xmlhttp")
 
 ------------------------------------------------------
 -- Temporary fix for evaluation of pg.

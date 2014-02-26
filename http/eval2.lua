@@ -19,8 +19,6 @@ local evalx = {} 			-- An action besides inclusion is needed.
 -- XHR needs a ton to work for some dumb reason...
 local xhrt = {}			-- Table of modules that should only be 
 								-- served partially via XMLHttpRequests.
-local rsrc
-local root 
 
 ------------------------------------------------------
 -- href {}
@@ -29,14 +27,14 @@ local root
 -- data.
 ------------------------------------------------------
 local href = {
-   as      = "string",
-   root    = false, 
-   class   = false,
-   id      = false,
-   string  = false,
-   subvert = false,
-   group   = false,
-   alias   = false
+   as      = "string",		-- Define how links should be returned.
+   url_root = "/", 			-- Define where links should be served relative to.
+   class   = "",				-- Use a class with generated links.
+   id      = false,			-- Use ID's with generated links.
+   string  = "",				-- Use a custom string for generating links.
+   subvert = {},				-- Table for subverted stuff.
+   group   = { _d_ = {} },	-- A group name or names.  Default.
+   alias   = {},           -- Set an alias.
 }
 
 ------------------------------------------------------
@@ -45,7 +43,13 @@ local href = {
 -- Table to hold XMLHttpRequest transport parameters.
 ------------------------------------------------------
 local xmlhttp = {
-
+	autobind = false,
+	bounds = false,
+	animate = false,
+	show = false,
+	hide = false,
+	post = false,
+	get = false	
 }
 
 ------------------------------------------------------
@@ -54,7 +58,36 @@ local xmlhttp = {
 -- Table to hold elements used to evaluate the HTTP
 -- request.
 ------------------------------------------------------
+local eval = {
+	level = 1,                 -- Should automatically be 1. 
+	resources = false,			-- ?
+	done = false,			      -- Change to true when eval_eval() is done. 
+	fs_root = "/",					-- Serve relative to here?
+	execution = { _d_ = {} },  -- Store execution blocks. 
+	group = { _d_ = {} },		-- Set a place for resources.
+	order = { "skel", "html" } -- Default order for finding files.
+}
 
+------------------------------------------------------
+-- typecheck_me(x)
+--
+-- Instead of complex die.xtype() calls littered
+-- through each of the functions, let's try working
+-- through as much of the logic as possible here.
+--
+-- Notice that each table above has a default value
+-- that matches the type that the modifying function
+-- is supposed to receive. 
+------------------------------------------------------
+
+
+
+------------------------------------------------------
+-- generate_href
+--
+-- Goes through a fairly long process to create
+-- a hyperlink reference.
+------------------------------------------------------
 
 ------------------------------------------------------
 -- eval {}
@@ -62,27 +95,6 @@ local xmlhttp = {
 -- Public functions for serving pages. 
 ------------------------------------------------------
 return {
-	------------------------------------------------------
-	-- alias(t)
-	--
-	-- Set aliases (for pages that are not document root).
-	-- [t] must be a named table pointing to some key
-	-- defined within E.set().
-	--
-	-- *nil
-	------------------------------------------------------
-	alias = function (t)
-		if t 
-		 and not request.alias
-		then
-			request.alias = {}
-		end 
-
-		for k,v in pairs(t) do 
-			request.alias[k] = v 
-		end
-	end,
-
 	------------------------------------------------------
 	-- .default( term )
 	--
@@ -94,25 +106,14 @@ return {
 	end,
 
 	------------------------------------------------------
-	-- .order( t )
-	--
-	-- Reorder links. 
-	-- *table
-	------------------------------------------------------
-	order = function (t)
-		local o = {}
-		table.sns(t,o)
-		return o	
-	end,
-
-	------------------------------------------------------
-	-- .run( f, level, map )
+	-- .run( level, f )
 	--
 	-- Run a function according to a specific resource.
 	--
 	-- *string, *table, *number or *nil
 	------------------------------------------------------
-	run = function (f,level,map)
+	nrun = function (level, f)
+	-- run = function (level, f, map) -- Need a way to choose resource.
 		local run_res 
 		if type(f) == 'function'
 		then
@@ -139,14 +140,128 @@ return {
 	end,
 
 	------------------------------------------------------
-	-- .root(t)
+	-- .run( level, f )
 	--
-	-- When printing links, use [s] as the root of the 
-	-- hyperlink reference(s).
-	--
-	-- *nil
+	-- ...
 	------------------------------------------------------
-	root = function (e)
+	run = function (level, f)
+		-- Die if f is not a function.
+		die.xtype(f, "function")
+
+		-- Run some stuff.	
+		if type(map) == 'string'
+		then
+			request.selection = "__" .. map .. "__"
+		end
+	
+		-- ...			
+		local run_res = table.copy( names[request.selection] or names ) 
+
+		------------------------------------------------------
+		-- Get the value only if it exists.
+		------------------------------------------------------
+		if data.url[level]
+		 and is.value(data.url[level],run_res)
+		then
+			return f(data.url[level])
+		elseif request.default
+		then 
+			return f(request.default)
+		else
+			return ""
+		end
+	end,
+
+	------------------------------------------------------
+	-- .set(t)
+	--
+	-- ...
+	------------------------------------------------------
+	set = function (t)
+		-- Die if e isn't a table.
+		die.xtype(t, "table", "E.set")
+
+		-- We can do it a simple way here by iterating through 
+		-- what's already there with a pairs()
+		for k,v in pairs(t)
+		do
+			-- If v is a table, then you have grouped resources.
+			if type(v) == 'table'
+			then
+				-- Create a new group for this key.
+				eval.group[k] = {} 
+				href.group[k] = {}
+
+				-- Recursion would be nice.
+				for kk,vv in pairs(v)
+				do
+					if type(vv) == 'string' 
+					then
+						-- Add this string to the new group. 
+						eval.group[k][kk] = vv
+				
+						-- Add an href link.
+						table.insert(href.group[k], vv)
+
+					elseif type(vv) == 'function'
+					then
+						-- Add this string to the new group. 
+						eval.group[k][kk] = vv
+				
+						-- Add an href link.
+						table.insert(href.group[k], kk)
+
+					elseif type(vv) == 'table'
+					then
+						die.xerror({
+							fn = "E.set",
+							msg = "%f does not support tables more than 1 level deep. "..
+					 		"Please check the value at index [" .. kk .. "] within " ..
+							"index [" .. k .. "] at table supplied to %f." 
+						})
+					elseif type(vv) == 'userdata' 
+			 		 or type(vv) == 'number' 
+			 		 or type(vv) == 'boolean' 
+			 		 or type(vv) == 'nil'
+					then
+						die.xerror({
+						-- at = (debug.traceback can retrieve where it occurred)
+						-- propagate = n (go up the chain n times to get error) 
+							fn = "E.set",
+							tn = type(vv),
+							msg = "%f cannot support tables with keys mapped to %t. "..
+					 		"Please check the value at index [" .. kk .. "] within " ..
+							"index [" .. k .. "] at table supplied to %f." 
+						})
+					end
+				end
+		
+			-- If it's a string or function, you're asking for a page in the skel
+			-- directory or defining what to run to get a payload.
+			elseif type(v) == 'string' or type(v) == 'function'
+			then
+				-- Add this string to a default group. 
+				table.insert(eval.group._d_, v)
+	
+				-- Also tell eval to make a link out of it.
+				table.insert(href.group._d_, k)
+
+			-- Typecheck your table.
+			elseif type(v) == 'userdata' 
+			 or type(v) == 'number' 
+			 or type(v) == 'boolean' 
+			 or type(v) == 'nil'
+			then
+				die.xerror({
+				-- at = (debug.traceback can retrieve where it occurred)
+				-- propagate = n (go up the chain n times to get error) 
+					fn = "E.set",
+					tn = type(v),
+					msg = "%f cannot support tables with keys mapped to %t. "..
+					 "Please check the value at index [" .. k .. "] at %f." 
+				})
+			end
+		end
 	end,
 
 	------------------------------------------------------
@@ -156,7 +271,7 @@ return {
 	--
 	-- *nil
 	------------------------------------------------------
-	set = function (e)
+	nset = function (e)
 		------------------------------------------------------
 		-- Do we have only one route scheme defined? 
 		------------------------------------------------------
@@ -244,62 +359,6 @@ return {
 		end -- is.ni(request.block)
 	end,
 
-	------------------------------------------------------
-	-- .subvert(t)
-	--
-	-- Removes resource defined by [t] from the list of
-	-- available links shown by E.links(). [t] can be
-	-- a string when E.set() has been used with a 
-	-- numerically indexed table.  Otherwise, [t] must be 
-	-- a {[key] = value} pair in which [key] points to the
-	-- resource set you'd like to run E.subvert() on.
-	--
-	-- *nil
-	------------------------------------------------------
-	subvert = function (t)
-		-- One value to subvert, you lucky guy you...
-		if type(t) == 'string' then
-			request['subvert'] = t 
-
-		-- Many values to subvert, you lucky guy you...
-		elseif type(t) == 'table' then
-			if is.ni(t) then
-				request['subvert'] = t 
-			else
-				for k,v in pairs(t) do
-					request['subvert'] = {}
-					request["subvert"][k] = v 
-				end
-			end
-		end
-	end,
-
-	------------------------------------------------------
-   -- .links( )
-	-- 
-	-- Flexible link output for resources defined with 
-	-- E.set(). Takes a table with arguments.
-	--
-	-- E.links({
-	--    as      = [table, string] 	-- Output link list as table or string.
-	--    root    = [string]        	-- Creates href relative to [root].
-	--    class   = [string]       	-- A class name for each.
-	--    id      = [bool]          	-- Use the resource name as an id.
-	--    string  = [string]        	-- Use this string as the link dump.
-	--    subvert = [table, string] 	-- Do not include these resources as links.
-	--    group   = [string]        	-- Choose a resource group if many have
-	--                             	-- been specified.
-	--    alias   = [table]         	-- Choose which resources to serve
-	--                             	-- with an entirely different link name.
-	-- })
-	------------------------------------------------------
-	links = function (t)
-		-- If [t] is a string, then auto-output the links
-		-- for the group thrown in [t], dying with an error
-		-- if that group does not exist.
-
-		-- Get the keys from [t] 
-	end,
 
 	------------------------------------------------------
 	-- .links( map,reps )
@@ -458,6 +517,201 @@ return {
 	end,
 
 	------------------------------------------------------
+   -- .links( )
+	-- 
+	-- Flexible link output for resources defined with 
+	-- E.set(). Takes a table with arguments.
+	--
+	-- Example and Usage:
+	--
+	-- <pre>
+	-- E.links({
+	--    as      = [table, string] 	-- Output link list as table or string.
+	--    root    = [string]        	-- Creates href relative to [root].
+	--    class   = [string]       	-- A class name for each.
+	--    id      = [bool]          	-- Use the resource name as an id.
+	--    string  = [string]        	-- Use this string as the link dump.
+	--    subvert = [table, string] 	-- Do not include these resources as links.
+	--    group   = [string]        	-- Choose a resource group if many have
+	--                             	-- been specified.
+	--    alias   = [table]         	-- Choose which resources to serve
+	--                             	-- with an entirely different link name.
+	-- })
+	-- </pre>
+	--
+	-- *nil
+	------------------------------------------------------
+	links = function (t)
+		-- Create a blank table.
+		local tt = {}
+
+		-- If [t] is blank, then just output the links 
+		-- as a string.
+		if not t
+		then
+			-- Shut down if E.set() was not called yet.
+			die.xempty(eval.group._d_)
+			
+			-- Output a very simple link list.
+			for k,v in ipairs( href.group._d_ )
+			do
+				linkstr = string.gsub('<a href="' .. href.url_root .. '%s">%s</a>', '%%s', v)
+				table.insert(tt, linkstr) 
+			end
+
+		-- If [t] is a string, then auto-output the links
+		-- for the group thrown in [t], dying with an error
+		-- if that group does not exist.
+		elseif type(t) == 'string'
+		then
+			-- Shut down if the group asked for does not exist.
+			die.xnil(eval.group[t])
+			
+			-- Output a very simple link list.
+			for k,v in ipairs( href.group[t] )
+			do
+				linkstr = string.gsub('<a href="' .. href.url_root .. '%s">%s</a>', '%%s', v)
+				table.insert(tt, linkstr) 
+			end
+
+		-- If [t] is a table, then you'll be handling more complex
+		-- functionality.
+		elseif type(t) == 'table'
+		then
+			-- It would make sense to keep the table data checks here.
+			local checks = {
+				as = function (x)
+					  if x ~= "string" and x ~= "table"
+					  then
+						  die({
+							  fn = "E.links",
+							  msg = "Incorrect argument " .. x .. " received at %f." ..
+								 "%f expects either 'string' or 'table' as the value for key [as]."
+						  })
+					  end
+
+						href.as = x
+				end,
+
+ 				url_root = function (x)
+				end,
+			}
+
+			-- Get the keys from [t]
+			t = table.retrieve( table.keys(href), t )
+
+			-- How do you want data returned?
+			die.xtype(t.as or href.as, "string")
+			checks.as( t.as or href.as )
+			-- href.as = t.as or href.as
+
+			-- Handle IDs
+			die.xtype(t.id or href.id, { "table", "boolean" })
+			-- Need to check each value in the table too.
+
+			-- Handle everything else. 
+			for _,v in ipairs({"url_root", "class", "string", "subvert", "group", "alias"})
+			do
+				-- Die on bad type.
+				die.xtype(t[v] or href[v], { "string", "table" })
+
+				-- Run checks to handle.
+				checks[v]( t[v] or href[v] )
+				-- href[v] = t[v] or href[v]	-- Be careful here... group will be wrong...
+			end
+	
+			-- Has XMLHttp been requested?
+			for k,v in ipairs({}) -- href.group[href.group] )
+			do
+			end
+
+		-- Catch bad arguments to E.links()
+		else
+			die.xtype(t, { "string", "table" })
+		end
+	end,
+
+	-- Return the links, because it's ugly.
+	plinks = function (t)
+	end,
+
+	------------------------------------------------------
+	-- .include(n, name)
+	--
+	-- Include resource at [n] as name.  Similar to 
+	-- redefining pg.pages.
+	--
+	-- *nil
+	------------------------------------------------------
+	include = function (n, name)
+	end,
+
+	------------------------------------------------------
+	-- .xmlhttp()
+	--
+	-- Bind resources to XMLHttpRequests. 
+	-- 
+	-- Example and Usage:
+	--
+	-- <pre>
+	-- E.xmlhttp ({
+	-- 	autobind = {	-- Choose to bind resources to ID's or classes...
+	-- 		[x] = [string or table],
+	-- 		[y] = [string or table],
+	-- 	},
+	-- 	bounds   = {	-- Define "aliases" for elements to bind to.
+	-- 		[x] = ".fool", -- The class .fool can be referenced by [x] now.
+	-- 		[y] = "#mega", -- The ID mega can be referenced by [y] now.
+	-- 	},
+	-- 	animate  = {   -- Bind an animation to some elements.
+	-- 		[x] = [number or table],
+	-- 		[y] = 300 or { start = 300, end = 300}
+	-- 	},
+	--  [show,hide] = [number or table],  -- Set show and hide speed 
+	--  [show,hide] = 300 -- or           -- for elements.
+	--  [show,hide] = { 
+	-- 		[x] = 300
+	-- 	},
+	-- 	post 	= [string or table]
+	-- 	get = [string or table]
+	-- })
+	-- </pre>
+	--
+	-- *nil
+	------------------------------------------------------
+	xmlhttp = function (t)
+	end,
+
+	------------------------------------------------------
+	-- .fail
+	--
+	-- Fail if certain resources are not found, instead
+	-- of passing the resource name to a script defined
+   -- in pg.pages.
+	-- 
+	-- Example and Usage:
+	-- <pre>
+	-- E.fail({       -- Fail with a 404 if resources at n are not found.
+	-- 	level 	 = [number]          -- at level [number]
+	-- 	resources = [string, table]   -- If these resources are received,
+   --                                  -- then it's ok.
+	-- 	group 	 = [string]          -- Only fail with unavailable 
+   --                                  -- resources from this group.
+	-- 	message   = [string]          -- Choose a different message for 
+   --                                  -- the default 404 page.
+	-- 	resource  = [string]          -- Choose a particular resource 
+   --                                  -- for serving 404 pages.
+	-- 	                              -- Keep in mind that pg can also 
+   --                                  -- serve custom error pages.
+	-- })  
+	-- </pre>
+	--
+	-- *nil            
+	-----------------------------------------------------
+	fail = function (t)
+	end,
+
+	------------------------------------------------------
 	-- .serve(int,xpath)
 	--
 	-- Serves resource requested.
@@ -466,6 +720,7 @@ return {
 	-- delve into the url structure.
 	--
 	-- Does not serve private data.
+	--
 	-- *nil or *string
 	------------------------------------------------------
 	serve = function (int,xpath)
@@ -596,63 +851,6 @@ return {
 					end,
 				})[type(request.default)]()
 			end	-- if.request.err
-		end
-	end,
- 
-	------------------------------------------------------
-	-- request {}
-	--
-	-- Pieces of the request that should be publicly
-	-- available.
-	------------------------------------------------------
-	request = {
-		block = function () return request.block end,
-		default = request.default,
-	},
-		
-	------------------------------------------------------
-	-- .on_error(err)
-	--
-	-- Set an error for general inclusion and execution
-	-- errors.
-	------------------------------------------------------
-	["error"] = function (err)
-		if err
-		then
-			request.err = err
-		end
-	end,
-
-	------------------------------------------------------
-	-- .on(r,f) 
-	--
-	-- For everything in a table, execute this function. 
-	-- Subverts default .serve method.
-	--
-	-- *table, *string or *number
-	------------------------------------------------------
-	on = function (r,f)
-
-	end,
-
-	------------------------------------------------------
-	-- .xhr {} 
-	--
-	-- Shuttle the XHR table.
-	-- No argument returns it, supplying t will inject
-	-- it.
-	--
-	-- Critical: Must handle strings...
-	--
-	-- *nil
-	------------------------------------------------------
-	xhr = function (t) 
-		if type(t) == 'table' then 
-			xhrt = t
-		elseif not t then
-			return xhrt 
-		else
-			response.abort({500}, "xhr() received wrong type.")
 		end
 	end,
 }

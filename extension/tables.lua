@@ -5,18 +5,144 @@
 ------------------------------------------------------
 local t = {
 	------------------------------------------------------
+	-- .process(t, f, depth)
+	--
+	-- Run some function at every value encountered in 
+	-- a data structure.
+	--
+	-- *?
+	------------------------------------------------------
+
+	------------------------------------------------------
+ 	-- .depth(t, max)
+	--
+	-- Gauge the depth of a table, stopping at max if 
+	-- specified.  Will return [max] if table t is 
+	-- greater than or exactly [max] levels deep. 
+	--
+   -- Depth will move through all the values in a table
+	-- and remember it's spot and move to the next index.
+	-- 
+	-- *number
+	------------------------------------------------------
+	depth = function (t, max)
+		-- Die if a table is not received.
+		die.xtype(t, "table", "table.depth")
+
+		-- Define a local traversal.
+		local traversal = {}
+	
+		-- Traverse.  This has the potential to be
+		-- extremely slow.
+		local function ntraverse(f,t)
+			for __,n in ipairs(t)
+			do
+				
+			end
+		end
+
+		local function atraverse(f,t)
+		end
+	
+		-- Want to iterate through each at the top.
+		-- Choose what to do based on that.
+--		if is.ni(t)
+--		then
+--			-- Move through all indices.
+--			for kc, nv in ipairs(t)
+--			do
+--				-- You're at the top level here.
+--				if type(nv) == 'table'
+--				then	
+--					-- Mark the index.
+--					table.insert(traversal, 1) 
+--				else
+--					table.insert(traversal, 0) 
+--				end
+--			end
+		if t	
+		then
+			-- Using a while loop is OK here, I suppose.
+			local c = 1				-- 1 will always be the first index.
+			local l = max or 20	-- Traversal will stop this many levels deep.
+										-- 20 seems like a nice sane default. 
+			local r = 0          -- r is where our final depth will go.
+			
+			-- Move through all indices.
+			local j = {}
+			while c < l 	-- or not c
+			do
+				-- Set a counter.
+				c = c + 1
+--				table.insert(j, "<div>bob</div>")
+
+				-- Move through each index.
+				for kc, nv in pairs(t)
+				do
+--					-- You're at the top level here.
+--					if type(nv) == 'table'
+--					then	
+--						-- Mark the index.
+--						table.insert(traversal, 1) 
+--					-- You would keep traversing here, until you've 
+--					-- reached the end.  The difference is, you need
+--					-- to know which index you're working on.
+--					else
+--						table.insert(traversal, 0) 
+--					end
+				end
+
+				-- Look at traversal and see how deep everything goes.
+
+				-- Reindex.
+			end
+
+			return r
+		end	
+	end,
+
+	------------------------------------------------------
 	-- .set(t)
 	--
 	-- Set all indices in t to val, regardless of whether
 	-- or not table is numerically or alphabetically 
 	-- indexed.
+	--
+	-- *table
 	------------------------------------------------------
 	set = function(t, val)
+		-- Die if t is not a table.  Still need a way to 
+		-- simulate error propagation higher in the stack.
+		-- i.e. depending on who's using, die.xtype should
+		-- tell more accurately where the failure occurred.
+		die.xtype(t, "table", "table.set")
 
-		if type(t) ~= "table"
+		-- Also die if no value was supplied, since tables
+		-- cannot have nil indices.
+		die.xnil(val)
+
+		-- Evaluate table types and set.	
+		local tt = {}
+
+		-- Move through each string name.
+		-- Do these all need to be strings?
+		if is.ni(t)
 		then
-		-- die.xtype(t, "table")
-		end	
+			for __,key in ipairs(t)
+			do
+				tt[key] = val
+			end
+
+		-- If it's an alphabetically indexed table,
+		-- set all the keys in a different table. 
+		else
+			for key,__ in pairs(t)
+			do
+				tt[key] = val	
+			end
+		end
+
+		return tt
 	end,
 
 	------------------------------------------------------
@@ -795,6 +921,8 @@ local t = {
 		end
 		return tt
 	end,
+
+
 }
 
 ------------------------------------------------------

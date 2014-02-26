@@ -289,35 +289,47 @@ return {
 	end,
 
    ------------------------------------------------------
-	-- .xerror(s)
+	-- .xempty(e)
 	--
-	-- Die in a certain error function.
-	--
-	-- The traceback is done here, and function that has
-	-- this error built into it will be what shows.
-	--
-	-- *nil
+	-- Die if e is empty.  If e is a table, then xempty()
+	-- will check if there are any values within the 
+	-- table, or if it's just blank.   If e is a string,
+	-- the xempty() will see if it's of length zero.
    ------------------------------------------------------
-	xerror = function (s)
-		local fname = "die.xerror"
-		if type(s) ~= "string"
+	xempty = function (e)
+		local fname = "die.xempty"
+		if e 
 		then
-			die({
-				fn		= fname,
-				msg 	= "%f requires a string as its first argument."
-			}) 
-				
-		else	
-			response.abort({500}, render.file({
-				msg = "",	
-				status = "",
-				code = "",
-				stacktrace = "",	
-			}, "error"))
+			if type(e) == 'table' and not next(e)
+			then
+				die({
+					fn = fname,
+					msg = "Table supplied at %f has no keys or indices."
+				})
+			elseif type(e) == 'string' and e == "" 
+			then
+				die({
+					fn = fname,
+					msg = "String supplied at %f is empty."
+				})
+			end
 		end
 	end,
 
    ------------------------------------------------------
+	-- .xnil(e)
+	--
+	-- Die if something is nil.
+   ------------------------------------------------------
+	xnil = function (e)
+		local fname = "die.xnil"
+		if type(e) == 'nil'
+		then
+			die({ fn = fname, msg = "Value supplied at %f is nil." })
+		end
+	end,
+   
+	------------------------------------------------------
 	-- .xtype(e, vtype)
 	--
 	-- Die when type of e is not the same as any element
@@ -399,4 +411,14 @@ return {
 			}) 
 		end
 	end,
+
+   ------------------------------------------------------
+	-- .xerror(t)
+	--
+	-- Open our private die function because it's more
+	-- useful sometimes.
+	--
+	-- *nil
+   ------------------------------------------------------
+	xerror = die
 }
