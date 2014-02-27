@@ -27,15 +27,14 @@ local xhrt = {}			-- Table of modules that should only be
 -- data.
 ------------------------------------------------------
 local href = {
-   as      =  "string" ,			-- Define how links should be returned.
-   url_root = { _d_ = "/" },		-- Relative path for links.
-   class   = { _d_ = ""	},       -- Use a class with generated links.
-   id      = { _d_ = false },	   -- Use ID's with generated links.
-   string  = { _d_ = "" },			-- Use a custom string for generating links.
-   subvert = { _d_ = {} },			-- Table for subverted stuff.
-   group   = { _d_ = {} },			-- A group name or names.  Default.
-   alias   = { _d_ = {} },       -- Set an alias.
---	src     = { _d_ = {} },       -- Where link reference names go.
+   as      	=  "string" ,				-- Define how links should be returned.
+   url_root = { ["_d_"] = "/" },		-- Relative path for links.
+   class   	= { ["_d_"] = ""	},  	-- Use a class with generated links.
+   id      	= { ["_d_"] = false },  -- Use ID's with generated links.
+   string  	= { ["_d_"] = "" },		-- Use a custom string for generating links.
+   subvert 	= { ["_d_"] = {} },		-- Table for subverted stuff.
+   group   	= { ["_d_"] = {} },		-- A group name or names.  Default.
+   alias   	= { ["_d_"] = {} },     -- Set an alias.
 }
 
 ------------------------------------------------------
@@ -548,7 +547,7 @@ return {
 		-- Create a blank table.
 		local tt = {}
 
-		-- If [t] is blank, then just output the links 
+		-- If [t] is blank, then output the links 
 		-- as a string.
 		if not t
 		then
@@ -556,15 +555,20 @@ return {
 			die.xempty(eval.group._d_)
 			
 			-- Output a very simple link list.
-			for k,v in ipairs( href.group._d_ )
+			for k,v in pairs( eval.group._d_ )
 			do
-				linkstr = string.gsub('<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', v)
-				table.insert(tt, linkstr) 
+--				linkstr = string.gsub('<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', v)
+				-- check if v is a string, if so, reject. 	
+				table.insert(tt, k) 
 			end
 
-		-- If [t] is a string, then auto-output the links
-		-- for the group thrown in [t], dying with an error
-		-- if that group does not exist.
+			-- Return the links.
+			response.abort({200}, table.concat(tt))
+			return table.concat(tt)
+
+		-- If [t] is a string, then output the links for the 
+		-- group represented by that string. Dying with an 
+		-- error if that group does not exist.
 		elseif type(t) == 'string'
 		then
 			-- Shut down if the group asked for does not exist.
@@ -576,6 +580,9 @@ return {
 				linkstr = string.gsub('<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', v)
 				table.insert(tt, linkstr) 
 			end
+
+			-- Return the links.
+			return table.concat(tt)
 
 		-- If [t] is a table, then you'll be handling more complex
 		-- functionality.
@@ -688,12 +695,12 @@ return {
 
 			-- Handle everything else. 
 			for _,v in ipairs({
-				'as','url_root','class','id','string','subvert','alias'	
+				"url_root","class","id","string","subvert","alias"	
 			})
 			do
 				-- Short name.
 				local vararg = t[v] or href[v]["_d_"]
-				local default = href[v]["_d_"]
+				-- local default = href[v]["_d_"]
 
 				-- Die if "outer" argument does not match.
 				-- die.xtype(vararg, datatypes[v]["it"])
@@ -702,8 +709,7 @@ return {
 				-- There is no group negotiation needed here.
 				if type(vararg) == "string" or type(vararg) == "boolean"
 				then
-					default = vararg 
-
+					href[v]["_d_"] = vararg 
 				-- Do some group negotiation if it's a table.
 				elseif type(vararg) == "table"
 				then
@@ -805,8 +811,8 @@ return {
 								-- Finally make a table for these aliases if there isn't one and save each.
 								if not href.alias[xx] then href.alias[xx] = {} end
 								for akey,aval in pairs(yy) do href.alias[xx][akey] = aval end
-							end
-						end
+							end -- if is.value(v, {"url_root", "string"})
+						end -- for xx,yy in pairs(vararg)
 
 					-- Not setting up any groups, so a lot of these will be wrong if
 					-- a table has made it there.
@@ -888,75 +894,81 @@ return {
 								end
 							end -- if v == 'class'
 						end -- for xx,yy in pairs(vararg)
-					end -- if t and t.group
+					end -- if type(vararg) == 'string' or type(vararg) == 'boolean' 
+				end -- for _,v in ipairs({
+
+				-- Iterate through each group asked for, if none, then iterate through _d_
+				local group
+				if t then
+				  group = t.group or eval.group 
+				else
+				  group = eval.group
 				end
-			end
+
+				local links = {}
+				for __,v in ipairs(group) -- href.group[href.group] )
+				do
+				  ---[[
+				  -- Move through strings doing replacements.
+				  if t and t.string and t.string[v]
+				  then
+					  for __,v in ipairs(group) -- href.group[href.group] )
+					  do
+						  -- Will use a custom syntax.
+						  for __,vv in ipairs(eval.group[v])
+						  do
+							  new_string = string.gsub(tostring(t.string[v]), '%%s', vv)
+							  -- table.insert(a, new_string)   -- Use either string group.
+							  table.insert(links, new_string)   -- Use either string group.
+						  end
+					  end
+
+				  -- Move through the rest.
+				  else
+				  --]]
+					  for __,vv in ipairs(eval.group[v])
+					  do
+				  ---[[
+					  table.insert(links, table.concat({
+						  '<a href=',  															-- Start the tag.
+						  '"' .. tostring(href.url_root[v] or href.url_root._d_),	-- Relative root. 
+						  vv .. '"',                                       			-- Resource name.
+						  string.set(href.class[v] or href.class._d_," class"), 		-- Class name.
+						  (function ()																-- ID name.
+							  if href.id then return string.set(vv, " id") end 
+						  end)(),
+						  ">",																		-- Close the opening tag.
+--	 				 	  href.alias[v][vv] or vv,                    					-- Resource name or alias (with working aliases).
+						  vv,                      											-- Resource name only.
+						  "</a>\n" 																	-- Close the entire tag.
+					  }))	
+					  --]]
+					  end -- for __,vv in ipairs(eval.group[v])
+				  end -- if t and t.string and t.string[v]
+			  end -- for __,v in ipairs(group)
+					  
+			  local as = t.as or href.as
+				  
+			  -- A way to do the below in one line.
+			  -- If as were a string, then return table.concat(links, "\n")
+			  -- return on.mtype(as, { string = table.concat(links,"\n"), table = links })
+			  -- If as evaluates to "string", then return table.concat(links, "\n")
+			  -- return on.meval(as, { string = table.concat(links,"\n"), table = links })
+			  -- If as is true then return table.concat(links, "\n")
+			  -- return on.mbool?(as, table.concat(links,"\n"), links )
+			  if as == 'string' 
+			  then 
+				  return table.concat(links,"\n")
+			  else 
+				  return links
+			  end
+			end -- elseif type(t) == 'table'
 	
 		-- Catch bad arguments to E.links()
 		else
 			die.xtype(t, { "string", "table" })
-		end
+		end -- if not t 
 
-		-- Finally, we're ready to present the links, but there's more to be done.
-		-- Has XMLHttp been requested?
-
-		-- Iterate through each group asked for, if none, then iterate through _d_
-		local group = t.group or eval.group
-		local links = {}
-		for __,v in ipairs(group) -- href.group[href.group] )
-		do
-			-- Move through strings doing replacements.
-			if t and t.string and t.string[v]
-			then
-				for __,v in ipairs(group) -- href.group[href.group] )
-				do
-					-- Will use a custom syntax.
-					for __,vv in ipairs(eval.group[v])
-					do
-						t.string[v] = string.gsub(tostring(t.string[v]), '%%s', vv)
-						table.insert(links, t.string[v])   -- Use either string group.
-					end
-				end
-
-			-- Move through the rest.
-			else
-				for __,vv in ipairs(eval.group[v])
-				do
-			---[[
-				table.insert(links, table.concat({
-					'<a href=',  															-- Start the tag.
-					'"' .. tostring(href.url_root[v] or href.url_root._d_),	-- Relative root. 
-					vv .. '"',                                       			-- Resource name.
-					string.set(href.class[v] or href.class._d_," class"), 	-- Class name.
-					(function ()															-- ID name.
-						if href.id then return string.set(vv, " id") end 
-					end)(),
-					">",																		-- Close the opening tag.
---					href.alias[v] or vv,                      					-- Resource name or alias.
-					vv,                      											-- Resource name or alias.
-					"</a>\n" 																-- Close the entire tag.
-				}))	
-			--]]
-				end 	
-			end
-		end
-			
-
-		local as = t.as or href.as
-		
-		-- A way to do the below in one line.
-		-- If as were a string, then return table.concat(links, "\n")
-		-- return on.mtype(as, { string = table.concat(links,"\n"), table = links })
-		-- If as evaluates to "string", then return table.concat(links, "\n")
-		-- return on.meval(as, { string = table.concat(links,"\n"), table = links })
-		-- If as is true then return table.concat(links, "\n")
-		-- return on.mbool?(as, table.concat(links,"\n"), links )
-		if as == 'string' 
-		then 
-			return table.concat(links,"\n")
-		else 
-			return links
-		end
 	end,
 
 	-- Return the links, because it's ugly.
