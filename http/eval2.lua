@@ -27,14 +27,14 @@ local xhrt = {}			-- Table of modules that should only be
 -- data.
 ------------------------------------------------------
 local href = {
-   as      = "string",		-- Define how links should be returned.
-   url_root = "/", 			-- Define where links should be served relative to.
-   class   = "",				-- Use a class with generated links.
-   id      = false,			-- Use ID's with generated links.
-   string  = "",				-- Use a custom string for generating links.
-   subvert = {},				-- Table for subverted stuff.
-   group   = { _d_ = {} },	-- A group name or names.  Default.
-   alias   = {},           -- Set an alias.
+   as      = { _d_ = "string" },	-- Define how links should be returned.
+  url_root = { _d_ = "/" },		-- Relative path for links.
+   class   = { _d_ = ""	},       -- Use a class with generated links.
+   id      = { _d_ = false },	   -- Use ID's with generated links.
+   string  = { _d_ = "" },			-- Use a custom string for generating links.
+   subvert = { _d_ = {} },			-- Table for subverted stuff.
+   group   = { _d_ = {} },			-- A group name or names.  Default.
+   alias   = { _d_ = {} },       -- Set an alias.
 }
 
 ------------------------------------------------------
@@ -49,7 +49,8 @@ local xmlhttp = {
 	show = false,
 	hide = false,
 	post = false,
-	get = false	
+	get = false,
+	unique = false
 }
 
 ------------------------------------------------------
@@ -578,46 +579,97 @@ return {
 		-- functionality.
 		elseif type(t) == 'table'
 		then
-			-- It would make sense to keep the table data checks here.
-			local checks = {
-				as = function (x)
-					  if x ~= "string" and x ~= "table"
-					  then
-						  die({
-							  fn = "E.links",
-							  msg = "Incorrect argument " .. x .. " received at %f." ..
-								 "%f expects either 'string' or 'table' as the value for key [as]."
-						  })
-					  end
-
-						href.as = x
-				end,
-
- 				url_root = function (x)
-				end,
+			-- See below for a short explanation.
+			--
+			-- datatypes = {
+			-- 	[k] = {  		-- The argument in t with the values you want to extract.
+			-- 		[it] = []	-- The datatype expected for this argument.
+			-- 		[ig] = []   -- If datatype of [it] is a table, and a group has been
+			-- 		            -- selected, then [ig] is the datatype expected of the 
+			-- 		            -- value that the group key corresponds to.
+			-- 		[iv] = []   -- If datatype of [it] is a table, and no group has been
+			-- 		            -- selected, then [iv] is the datatype expected of each
+			-- 		            -- index in the table.
+			--	}}
+			local datatypes = {
+				as = { it = "string" },
+				url_root = { it = {"string", "table"}, ig = "string" },
+				class = { it = {"string", "table"}, iv = { "string", "table" }, ig = { "string", "table" }},
+				id = { it = {"boolean", "table"}, ig = "boolean" },
+				string = { it = {"string", "table"}, ig = "string" },
+				subvert = { it = {"string", "table"}, ig = { "string", "table" }},
+				group = { it = {"string", "table"}, ig = "string" },
+				alias = { it = "table", ig = "string" }
 			}
 
 			-- Get the keys from [t]
-			t = table.retrieve( table.keys(href), t )
-
-			-- How do you want data returned?
-			die.xtype(t.as or href.as, "string")
-			checks.as( t.as or href.as )
-			-- href.as = t.as or href.as
-
-			-- Handle IDs
-			die.xtype(t.id or href.id, { "table", "boolean" })
-			-- Need to check each value in the table too.
+			t = table.retrieve(table.keys(href), t)
 
 			-- Handle everything else. 
-			for _,v in ipairs({"url_root", "class", "string", "subvert", "group", "alias"})
+			for _,v in ipairs(table.keys(href))
 			do
-				-- Die on bad type.
-				die.xtype(t[v] or href[v], { "string", "table" })
+				-- Short name.
+				local vararg = t[v] or href[v]["_d_"]
+				local default = href[v]["_d_"]
 
-				-- Run checks to handle.
-				checks[v]( t[v] or href[v] )
-				-- href[v] = t[v] or href[v]	-- Be careful here... group will be wrong...
+				-- Die if "outer" argument does not match.
+				die.xtype(vararg, datatypes.outer[v])
+
+				-- Depending on type of vararg, evaluate inner and set.
+				-- There is no group negotiation needed here.
+				if type(vararg) == "string" or type(vararg) == "boolean"
+				then
+					default = vararg 
+
+				-- Do some group negotiation if it's a table.
+				elseif type(vararg) == "table"
+				then
+					-- Should check if the group even exists.
+					if t and t.group
+					then
+						for xx,yy in pairs(vararg)
+						do 
+							-- Check for numerically indexed tables.
+							if is.value(v,{"url_root","id","string","alias"}) 
+							 and type(xx) == 'number'
+							then
+								die({
+									fn = "E.links", 
+									msg = "Received the wrong table type at index [" .. v .. "] in %f."
+								})
+
+							-- Otherwise, set up the table you've been given. 
+							else
+								-- Make sure that inner types match.
+								die.xtype(yy, datatypes.inner[v])
+
+								-- Also, if the group does not exist, then you'll be unhappy.
+								if not is.key(xx, href.group)
+								then
+									die({
+										fn = "E.links",
+										msg = "Group name '" .. xx .. "' does not exist at %f."
+									})
+								end
+								-- Set string, id, or url_root
+								href[v][xx] = yy 
+							end
+						end
+
+					-- 
+					else
+						-- Handle  
+						for xx,yy in pairs(vararg)
+						do
+							-- Does each value match up?
+							die.xtype(yy, datatypes.inner[v])
+
+							-- Since there's no group, a few of these tables won't be accepted.
+							-- Classes can be concatenated.
+							-- Everything else can be saved.
+						end
+					end
+				end
 			end
 	
 			-- Has XMLHttp been requested?
