@@ -27,14 +27,15 @@ local xhrt = {}			-- Table of modules that should only be
 -- data.
 ------------------------------------------------------
 local href = {
-   as      = { _d_ = "string" },	-- Define how links should be returned.
-  url_root = { _d_ = "/" },		-- Relative path for links.
+   as      =  "string" ,			-- Define how links should be returned.
+   url_root = { _d_ = "/" },		-- Relative path for links.
    class   = { _d_ = ""	},       -- Use a class with generated links.
    id      = { _d_ = false },	   -- Use ID's with generated links.
    string  = { _d_ = "" },			-- Use a custom string for generating links.
    subvert = { _d_ = {} },			-- Table for subverted stuff.
    group   = { _d_ = {} },			-- A group name or names.  Default.
    alias   = { _d_ = {} },       -- Set an alias.
+--	src     = { _d_ = {} },       -- Where link reference names go.
 }
 
 ------------------------------------------------------
@@ -66,6 +67,7 @@ local eval = {
 	fs_root = "/",					-- Serve relative to here?
 	execution = { _d_ = {} },  -- Store execution blocks. 
 	group = { _d_ = {} },		-- Set a place for resources.
+	href = { _d_ = {} },		-- Set a place for resources.
 	order = { "skel", "html" } -- Default order for finding files.
 }
 
@@ -191,7 +193,7 @@ return {
 			then
 				-- Create a new group for this key.
 				eval.group[k] = {} 
-				href.group[k] = {}
+				-- href.src[k] = {}
 
 				-- Recursion would be nice.
 				for kk,vv in pairs(v)
@@ -202,7 +204,7 @@ return {
 						eval.group[k][kk] = vv
 				
 						-- Add an href link.
-						table.insert(href.group[k], vv)
+						-- table.insert(href.group[k], vv)
 
 					elseif type(vv) == 'function'
 					then
@@ -210,7 +212,7 @@ return {
 						eval.group[k][kk] = vv
 				
 						-- Add an href link.
-						table.insert(href.group[k], kk)
+						-- table.insert(href.group[k], kk)
 
 					elseif type(vv) == 'table'
 					then
@@ -245,7 +247,7 @@ return {
 				table.insert(eval.group._d_, v)
 	
 				-- Also tell eval to make a link out of it.
-				table.insert(href.group._d_, k)
+--				table.insert(href.src._d_, k)
 
 			-- Typecheck your table.
 			elseif type(v) == 'userdata' 
@@ -556,7 +558,7 @@ return {
 			-- Output a very simple link list.
 			for k,v in ipairs( href.group._d_ )
 			do
-				linkstr = string.gsub('<a href="' .. href.url_root .. '%s">%s</a>', '%%s', v)
+				linkstr = string.gsub('<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', v)
 				table.insert(tt, linkstr) 
 			end
 
@@ -571,7 +573,7 @@ return {
 			-- Output a very simple link list.
 			for k,v in ipairs( href.group[t] )
 			do
-				linkstr = string.gsub('<a href="' .. href.url_root .. '%s">%s</a>', '%%s', v)
+				linkstr = string.gsub('<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', v)
 				table.insert(tt, linkstr) 
 			end
 
@@ -582,38 +584,119 @@ return {
 			-- See below for a short explanation.
 			--
 			-- datatypes = {
-			-- 	[k] = {  		-- The argument in t with the values you want to extract.
-			-- 		[it] = []	-- The datatype expected for this argument.
-			-- 		[ig] = []   -- If datatype of [it] is a table, and a group has been
-			-- 		            -- selected, then [ig] is the datatype expected of the 
-			-- 		            -- value that the group key corresponds to.
-			-- 		[iv] = []   -- If datatype of [it] is a table, and no group has been
-			-- 		            -- selected, then [iv] is the datatype expected of each
-			-- 		            -- index in the table.
+			-- [k] = {  		-- The argument in t with the values you want to extract.
+			-- 	[it] = []	-- The datatype expected for this argument.
+			-- 	[ig] = []   -- If datatype of [it] is a table, and a group has been
+			-- 	            -- selected, then [ig] is the datatype expected of the 
+			-- 	            -- value that the group key corresponds to.
+			-- 	[iv] = []   -- If datatype of [it] is a table, and no group has been
+			-- 	            -- selected, then [iv] is the datatype expected of each
+			-- 	            -- index in the table.
 			--	}}
 			local datatypes = {
 				as = { it = "string" },
-				url_root = { it = {"string", "table"}, ig = "string" },
-				class = { it = {"string", "table"}, iv = { "string", "table" }, ig = { "string", "table" }},
-				id = { it = {"boolean", "table"}, ig = "boolean" },
-				string = { it = {"string", "table"}, ig = "string" },
-				subvert = { it = {"string", "table"}, ig = { "string", "table" }},
-				group = { it = {"string", "table"}, ig = "string" },
-				alias = { it = "table", ig = "string" }
+				url_root = { 
+					it = {"string", "table"}, 
+					ig = "string" },
+				class = { 
+					it = {"string", "table"}, 
+					iv = { "string", "table" }, 
+					ig = { "string", "table" }},
+				id = { 
+					it = {"boolean", "table"}, 
+					ig = "boolean" },
+				string = { 
+					it = {"string", "table"}, 
+					ig = "string" },
+				subvert = { 
+					it = {"string", "table"}, 
+					ig = { "string", "table" }},
+				group = { 
+					it = {"string", "table"}, 
+					ig = "string" },
+				alias = { 
+					it = "table", 
+					ig = "string" }
 			}
 
 			-- Get the keys from [t]
-			t = table.retrieve(table.keys(href), t)
+			t = table.retrieve(table.keys(href), t)	-- Clear group, b/c issues will occur...
+
+			-- Check if the group exists.
+			if t and t.group
+			then
+				-- Do a quick type check.
+				-- die.xtype(t.group, { "string", "table" }, "E.links")
+				if type(t.group) ~= "string" and type(t.group) ~= "table"
+				then
+					die.xerror({
+						fn = "E.links",
+						on = { "string", "table" },
+						msg = "Value at index [group] in %f must be either a %o."
+					})
+				end
+
+				if type(t.group) == 'table'
+				then
+					-- Move through each making sure they exist in set.
+					for xx,yy in pairs(t.group)
+					do 
+						-- Must be numerically indexed.	
+						if type(xx) == 'string'
+						then
+						die.xerror({
+							fn = "E.links",
+							msg = "Table supplied at index [group] in %f must be a " ..
+						 		"numerically indexed table."
+						})
+						end
+
+						-- Check that a string was given.
+						-- die.xtype(yy, "string", "E.links")
+						if type(yy) ~= "string"
+						then
+						die.xerror({
+							fn = "E.links", tn = type( yy ),
+							msg = "Argument at index ["..xx.."] at index " ..
+							"[group] in %f is of incorrect %t."
+						})
+					 	end
+
+						-- Die if the group does not exist.
+						if not is.key(yy, eval.group)
+						then
+						die.xerror({
+							fn = "E.links",
+							msg = "Group name '" .. xx .. "' does not "
+							.. "exist at %f."
+						})
+						end
+					end
+
+				-- Check if the string is actually a group member.
+				else
+					if not is.key(t.group, href.group)
+					then
+						die.xerror({
+							fn = "E.links",
+							msg = "Group name '" .. t.group .. "' does not "
+							.. "exist at %f."
+						})
+					end
+				end
+			end -- if t and t.group
 
 			-- Handle everything else. 
-			for _,v in ipairs(table.keys(href))
+			for _,v in ipairs({
+				'as','url_root','class','id','string','subvert','alias'	
+			})
 			do
 				-- Short name.
 				local vararg = t[v] or href[v]["_d_"]
 				local default = href[v]["_d_"]
 
 				-- Die if "outer" argument does not match.
-				die.xtype(vararg, datatypes.outer[v])
+				-- die.xtype(vararg, datatypes[v]["it"])
 
 				-- Depending on type of vararg, evaluate inner and set.
 				-- There is no group negotiation needed here.
@@ -624,62 +707,255 @@ return {
 				-- Do some group negotiation if it's a table.
 				elseif type(vararg) == "table"
 				then
-					-- Should check if the group even exists.
+					-- Run checks with supplied groups.
 					if t and t.group
 					then
+						-- Cycle through the other indices. 
 						for xx,yy in pairs(vararg)
 						do 
 							-- Check for numerically indexed tables.
 							if is.value(v,{"url_root","id","string","alias"}) 
-							 and type(xx) == 'number'
+						 	 and type(xx) == 'number'
 							then
-								die({
+								die.xerror({
 									fn = "E.links", 
-									msg = "Received the wrong table type at index [" .. v .. "] in %f."
+									msg = "Received the wrong table type at index"
+								 	.. " [" .. v .. "] in %f."
 								})
+							end
 
 							-- Otherwise, set up the table you've been given. 
-							else
-								-- Make sure that inner types match.
-								die.xtype(yy, datatypes.inner[v])
-
-								-- Also, if the group does not exist, then you'll be unhappy.
-								if not is.key(xx, href.group)
-								then
-									die({
-										fn = "E.links",
-										msg = "Group name '" .. xx .. "' does not exist at %f."
-									})
+							-- Still have to run each one.
+							if is.value(v, {"url_root", 'string'})
+							then
+								-- Set the url root for a group.
+								-- Replace all this mess with die.xtype() calls.
+								if type(yy) ~= "string" then
+								die.xerror({ fn = "E.links", tn = type(yy), 
+									msg = "Received %t at index ["..v.."] at %f. Expected <i>string</i>." }) 
 								end
-								-- Set string, id, or url_root
-								href[v][xx] = yy 
+								href.url_root[xx] = yy
+
+							elseif v == 'id'
+							then
+								-- Set the url root for a group.
+								-- Replace all this mess with die.xtype() calls.
+								if type(yy) ~= "boolean" then
+								die.xerror({ fn = "E.links", tn = type(yy), 
+									msg = "Received %t at index ["..v.."] at %f. Expected <i>boolean</i>." }) 
+								end
+								href.id[xx] = yy
+
+							elseif v == "class"
+							then
+								-- Replace all this mess with die.xtype() calls.
+								if type(yy) ~= "string" and type(yy) ~= "table" then
+								die.xerror({ fn = "E.links", tn = type(yy), 
+									msg = "Received %t at index ["..xx.."] at index ["..v.."] at %f." }) end
+
+								if type(yy) == 'string'
+								then
+									href.class[xx] = yy
+								elseif type(yy) == 'table'
+								then
+									-- is.ni seems to be failing...  let's try anyway.
+									if not is.ni(yy) 
+									then
+										die.xerror({
+											fn = "E.links",
+											msg = "Incorrect table type received at index ["..xx.."] " ..
+												"at index ["..v.."] in %f."
+										})
+									else
+										href.class[xx] = table.concat(yy," ")
+									end
+								end
+
+							elseif v == "subvert"
+							then
+								-- Replace all this mess with die.xtype() calls.
+								if type(yy) ~= "string" and type(yy) ~= "table" then
+								die.xerror({ fn = "E.links", tn = type(yy), 
+									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) end
+			
+								-- Pop these from whatever you're generating links on.
+								-- href.url[xx] = yy
+
+							elseif v == "alias"
+							then
+								-- Replace all this mess with die.xtype() calls.
+								if type(yy) ~= "string" and type(yy) ~= "table" then
+								die.xerror({ fn = "E.links", tn = type(yy), 
+									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
+								end
+			
+								-- Check that the group name for the alias exists?
+								--[[
+								if 
+								die.xerror({ fn = "E.links", tn = type(yy), 
+									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
+								end
+
+								-- Should also check that the resource name exists?
+								die.xerror({ fn = "E.links", tn = type(yy), 
+									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
+								end
+								--]]
+		
+								-- Finally make a table for these aliases if there isn't one and save each.
+								if not href.alias[xx] then href.alias[xx] = {} end
+								for akey,aval in pairs(yy) do href.alias[xx][akey] = aval end
 							end
 						end
 
-					-- 
+					-- Not setting up any groups, so a lot of these will be wrong if
+					-- a table has made it there.
 					else
-						-- Handle  
-						for xx,yy in pairs(vararg)
-						do
-							-- Does each value match up?
-							die.xtype(yy, datatypes.inner[v])
-
-							-- Since there's no group, a few of these tables won't be accepted.
-							-- Classes can be concatenated.
-							-- Everything else can be saved.
+						-- Check for numerically indexed tables.
+						if not is.value(v,{"class", "alias", "subvert"}) 
+						then
+							die.xerror({
+								fn = "E.links", tn = type(t[v]),
+								msg = "Received %t at index ["..v.."] at %f.  Expected non-table value."
+							})
 						end
-					end
+
+						-- Cycle through the other indices. 
+						for xx,yy in pairs(vararg)
+						do 
+							-- Otherwise, set up the table you've been given. 
+							-- Still have to run each one.
+							if v == "class"
+							then
+								-- Replace all this mess with die.xtype() calls.
+								if type(yy) ~= "string" and type(yy) ~= "table" then
+								die.xerror({ fn = "E.links", tn = type(yy), 
+									msg = "Received %t at index ["..v.."] at %f." }) end
+
+								if type(yy) == 'string'
+								then
+									href.class._d_ = yy
+								elseif type(yy) == 'table'
+								then
+									-- is.ni seems to be failing...  let's try anyway.
+									if not is.ni(yy) 
+									then
+										die.xerror({
+											fn = "E.links",
+											msg = "Incorrect table type received at index ["..xx.."] " ..
+												"at index ["..v.."] in %f."
+										})
+									else
+										href.class._d_ = table.concat(yy," ")
+									end
+								end
+
+							elseif v == "subvert"
+							then
+								-- Replace all this mess with die.xtype() calls.
+								if type(yy) ~= "string" and type(yy) ~= "table" then
+								die.xerror({ fn = "E.links", tn = type(yy), 
+									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) end
+			
+								-- Pop these from whatever you're generating links on.
+								-- href.url[xx] = yy
+
+							elseif v == "alias"
+							then
+								-- Replace all this mess with die.xtype() calls.
+								if type(yy) ~= "string" and type(yy) ~= "table" then
+								die.xerror({ fn = "E.links", tn = type(yy), 
+									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
+								end
+			
+								-- Check that the group name for the alias exists?
+								--[[
+								if 
+								die.xerror({ fn = "E.links", tn = type(yy), 
+									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
+								end
+
+								-- Should also check that the resource name exists?
+								die.xerror({ fn = "E.links", tn = type(yy), 
+									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
+								end
+								--]]
+		
+								-- Finally make a table for these aliases if there isn't one and save each.
+								for akey,aval in pairs(yy) 
+								do 
+									href.alias._d_[akey] = aval 
+								end
+							end -- if v == 'class'
+						end -- for xx,yy in pairs(vararg)
+					end -- if t and t.group
 				end
 			end
 	
-			-- Has XMLHttp been requested?
-			for k,v in ipairs({}) -- href.group[href.group] )
-			do
-			end
-
 		-- Catch bad arguments to E.links()
 		else
 			die.xtype(t, { "string", "table" })
+		end
+
+		-- Finally, we're ready to present the links, but there's more to be done.
+		-- Has XMLHttp been requested?
+
+		-- Iterate through each group asked for, if none, then iterate through _d_
+		local group = t.group or eval.group
+		local links = {}
+		for __,v in ipairs(group) -- href.group[href.group] )
+		do
+			-- Move through strings doing replacements.
+			if t and t.string and t.string[v]
+			then
+				for __,v in ipairs(group) -- href.group[href.group] )
+				do
+					-- Will use a custom syntax.
+					for __,vv in ipairs(eval.group[v])
+					do
+						t.string[v] = string.gsub(tostring(t.string[v]), '%%s', vv)
+						table.insert(links, t.string[v])   -- Use either string group.
+					end
+				end
+
+			-- Move through the rest.
+			else
+				for __,vv in ipairs(eval.group[v])
+				do
+			---[[
+				table.insert(links, table.concat({
+					'<a href=',  															-- Start the tag.
+					'"' .. tostring(href.url_root[v] or href.url_root._d_),	-- Relative root. 
+					vv .. '"',                                       			-- Resource name.
+					string.set(href.class[v] or href.class._d_," class"), 	-- Class name.
+					(function ()															-- ID name.
+						if href.id then return string.set(vv, " id") end 
+					end)(),
+					">",																		-- Close the opening tag.
+--					href.alias[v] or vv,                      					-- Resource name or alias.
+					vv,                      											-- Resource name or alias.
+					"</a>\n" 																-- Close the entire tag.
+				}))	
+			--]]
+				end 	
+			end
+		end
+			
+
+		local as = t.as or href.as
+		
+		-- A way to do the below in one line.
+		-- If as were a string, then return table.concat(links, "\n")
+		-- return on.mtype(as, { string = table.concat(links,"\n"), table = links })
+		-- If as evaluates to "string", then return table.concat(links, "\n")
+		-- return on.meval(as, { string = table.concat(links,"\n"), table = links })
+		-- If as is true then return table.concat(links, "\n")
+		-- return on.mbool?(as, table.concat(links,"\n"), links )
+		if as == 'string' 
+		then 
+			return table.concat(links,"\n")
+		else 
+			return links
 		end
 	end,
 

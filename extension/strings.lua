@@ -59,7 +59,7 @@ local lib = {
 		 and text ~= ''
 		 and key ~= ''
 		then
-			rt = string.format("%s=%s",key,text)
+			rt = string.format("%s=\"%s\"",key,text)
 		elseif text
 		 and text ~= ''
 		then
