@@ -721,6 +721,72 @@ table.insert(aa,xxnn)
 	-- *nil
 	------------------------------------------------------
 	xmlhttp = function (t)
+		-- Pull each of the values out, checking everything.
+		if t
+		then
+			t = table.retrieve(table.keys(xmlhttp))
+			-- Typecheck mANIA!!!
+			
+			-- Autobind id's / classes from links to places on page.
+			if t.autobind 
+			then 
+				if type(t.autobind) ~= "string" or type(t.autobind) ~= "table"
+				then
+					die({ fn = "xmlhttp", msg = "Hello %f." })
+				end
+			end
+			if t.bind
+			then 
+				if type(t.bind) ~= "string" or type(t.bind) ~= "table"
+				then
+					die({ fn = "xmlhttp", msg = "Hello %f." })
+				end
+			end
+			if t.animate
+			then 
+				if type(t.animate) ~= "string" or type(t.animate) ~= "table"
+				then
+					die({ fn = "xmlhttp", msg = "Hello %f." })
+				end
+			end
+			if t.show
+			then 
+				if type(t.show) ~= "number" or type(t.show) ~= "table"
+				then
+					die({ fn = "xmlhttp", msg = "Hello %f." })
+				end
+			end
+			if t.hide
+			then 
+				if type(t.hide) ~= "number" or type(t.hide) ~= "table"
+				then
+					die({ fn = "xmlhttp", msg = "Hello %f." })
+				end
+			end
+			if t.inline
+			then 
+				if type(t.inline) ~= "boolean" 
+				then
+					die({ fn = "xmlhttp", msg = "Hello %f." })
+				end
+			end
+			if t.post
+			then 
+				if type(t.post) ~= "string" or type(t.post) ~= "table"
+				then
+					die({ fn = "xmlhttp", msg = "Hello %f." })
+				end
+			end
+			if t.get
+			then 
+				if type(t.get) ~= "string" or type(t.get) ~= "table"
+				then
+					die({ fn = "xmlhttp", msg = "Hello %f." })
+				end
+			end
+
+			-- ... 
+		end
 	end,
 
 	------------------------------------------------------
