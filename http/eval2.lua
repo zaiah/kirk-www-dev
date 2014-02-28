@@ -43,14 +43,42 @@ local href = {
 -- Table to hold XMLHttpRequest transport parameters.
 ------------------------------------------------------
 local xmlhttp = {
-	autobind = false,
-	bounds = false,
-	animate = false,
-	show = false,
-	hide = false,
-	post = false,
-	get = false,
-	unique = false
+	-- Binding 
+	autobind = { ["_d_"] = false },	-- Define each item that will dump resources at a location.
+	bind 		= { ["_d_"] = false },	-- Bind resources to events. 
+
+	-- Animation
+	animate 	= { ["_d_"] = false },	-- Use basic animation when doing stuff.
+	hide 		= { ["_d_"] = false },
+	show 		= { ["_d_"] = false },
+
+	-- Publisher-subscriber
+	listen 	= { ["_d_"] = false },	-- Set up a publisher-subscriber system with resources.
+
+	-- HTTP Requests
+	post 		= { ["_d_"] = false },  -- POST something over XMLHttp.
+	get 		= { ["_d_"] = false },  -- GET something via XMLHttp.
+	head     = { ["_d_"] = false },  -- Make HEAD request via XMLHttp.
+
+	-- Frontend / Backend Interaction
+	shuttle  = { ["_d_"] = false },  -- Send something in the backend to the frontend.
+	validate = { ["_d_"] = false },  -- Validate some area of input fields.
+}
+
+
+------------------------------------------------------
+-- xmlhttp_settings {}
+--
+-- One-time settings for XMLHttp requests.
+------------------------------------------------------
+local xmlhttp_settings = {
+	-- Settings
+	unique 		= false, -- Use unique identifiers as classes.
+	inline 		= false, -- Use inline styles instead of raw Javascript to locate elements.
+	namespace   = "",  	-- Set up a different namespace for classes.
+	wait 			= false, -- Wait until a response is received before moving further.
+	dump 			= false, -- Dump generated Javascript as the result of an XMLHttp call.
+	dump_to  	= "", -- Dump generated Javascript as the result of an XMLHttp call to file.
 }
 
 ------------------------------------------------------
@@ -69,6 +97,16 @@ local eval = {
 	href = { _d_ = {} },		-- Set a place for resources.
 	order = { "skel", "html" } -- Default order for finding files.
 }
+
+
+------------------------------------------------------
+-- js_dump str
+--
+-- A large string that will hold the contents of 
+-- a script used to generate XMLHttp and basic 
+-- Javascript scaffolding. 
+------------------------------------------------------
+local js_dump = {}
 
 ------------------------------------------------------
 -- typecheck_me(x)
@@ -727,65 +765,179 @@ table.insert(aa,xxnn)
 			t = table.retrieve(table.keys(xmlhttp))
 			-- Typecheck mANIA!!!
 			
+			------------------------------------------------------
+			-- Start the Javascript dump.
+			------------------------------------------------------
+			table.insert(js_dump, '<script type="text/javascript">')
+
+			------------------------------------------------------
+			-- arrayify(t, name
+			------------------------------------------------------
+			local function arrayify( t, name ) 
+				-- Store in [name] all elements in [t].	
+				local js, rsrc = {}, "var " .. name .. " = [" 
+				for _,v in ipairs(t) do
+					table.insert(js, "'" .. v .. "'")
+				end 
+				return table.concat( {rsrc, table.concat(js,","), "];"} )
+			end
+
+			------------------------------------------------------
+			-- Set up all the datatypes.
+			------------------------------------------------------
+			local datatypes = {
+				autobind = {
+					"atable", { "string", "table" }, "string" },
+				animate = {
+					{ "atable", "boolean" }, { "ntable", "string", "boolean" }, "string" },
+				hide = {
+					{ "atable", "number" }, { "atable", "number" }, "number" },
+				show = {
+					{ "atable", "number" }, { "atable", "number" }, "number" },
+			}
+
+			------------------------------------------------------
+			-- function () end
+			------------------------------------------------------
+			local functions = {
+				autobind = function (x) end,
+				animate = function (x) end,
+				hide = function (x) end,
+				show = function (x) end,
+			}
+
+			------------------------------------------------------
+			-- check_types(e, a, s)
+			--
+			-- Check the values at every index in e, dying if
+			-- the value is not matching, and returning if it's 
+			-- right. 
+			--
+			-- e is the table or value we want to analyze.
+			-- a is the type to validate.
+			-- s is a possible value to assign e to.
+			--
+			-- *any type but nil
+			------------------------------------------------------
+			local function check_types(e, a, s)
+				-- If a says atable, then move through each index.
+				-- Test if it's
+				if s then s = s + 1 end
+				if a == 'atable' then
+					for n,x in pairs(e) do
+					-- Error out if a number is encountered.
+						if type(n) == 'number' then
+							die.xerror({
+								fn = "xmlhttp", msg = "Expected alphabetically indexed table at %f."
+							})	
+						end
+					end
+				elseif a == 'ntable' then
+					for n,x in pairs(e) do
+						-- Error out if a number is encountered.
+						if type(n) == 'string' then
+							die.xerror({
+								fn = "xmlhttp", msg = "Expected numerically indexed table at %f."
+							})	
+						end
+					end
+				else
+				end	
+			end
+
+			-- Clone your defaults.
+			local original = {
+				xmlhttp = table.clone(xmlhttp),
+				settings = table.clone(xmlhttp_settings),
+			}
+
+			-- Extract settings.
+			local settings = table.retrieve(table.keys(xmlhttp_settings), t)
+			
+			-- Typecheck and validate.
+			if settings then
+				for k,v in pairs(settings) do
+					if type(v) ~= type(xmlhttp_settings[k])
+					then
+					die.xerror({ 
+						fn = "E.xmlhttp", tn = type(xmlhttp_settings[k]),
+						msg = "Expected type %t at index ["..k.."] in %f." 
+					})
+					end
+				end	
+			end	
+
+			-- Get all keys from t.	
+			t = table.retrieve(table.keys(xmlhttp), t)
+
+			-- Cycle through each.
+			for n,k in pairs(t)
+			do
 			-- Autobind id's / classes from links to places on page.
 			if t.autobind 
 			then 
 				if type(t.autobind) ~= "string" or type(t.autobind) ~= "table"
 				then
-					die({ fn = "xmlhttp", msg = "Hello %f." })
+					die({fn = "xmlhttp", on = {"string", "table"}, 
+						msg = "Expected %o at index ["..n.."] at %f."})
+
+					if is.ni(t.autobind)
+					then
+						die({fn = "xmlhttp", 
+							msg = "Expected alpha table at index ["..n.."] at %f."})
+					end
 				end
-			end
-			if t.bind
-			then 
-				if type(t.bind) ~= "string" or type(t.bind) ~= "table"
+
+				if type(t.autobind) == 'table'
 				then
-					die({ fn = "xmlhttp", msg = "Hello %f." })
+					-- Iterate through each group and set the things.
+					for kk,vv in pairs(t.autobind)
+					do
+						if type(vv) == 'string'
+						then
+							table.insert( xmlhttp.autobind, vv )
+						elseif type(vv) == 'table'
+						then
+						end
+					end
 				end
 			end
+
 			if t.animate
 			then 
 				if type(t.animate) ~= "string" or type(t.animate) ~= "table"
 				then
-					die({ fn = "xmlhttp", msg = "Hello %f." })
+					die({fn = "xmlhttp", on = {"string", "table"}, 
+						msg = "Expected %o at index ["..n.."] at %f."})
 				end
 			end
+
 			if t.show
 			then 
 				if type(t.show) ~= "number" or type(t.show) ~= "table"
 				then
-					die({ fn = "xmlhttp", msg = "Hello %f." })
+					die({fn = "xmlhttp", on = {"number", "table"}, 
+						msg = "Expected %o at index ["..n.."] at %f."})
 				end
 			end
 			if t.hide
 			then 
 				if type(t.hide) ~= "number" or type(t.hide) ~= "table"
 				then
-					die({ fn = "xmlhttp", msg = "Hello %f." })
+					die({fn = "xmlhttp", on = {"number", "table"}, 
+						msg = "Expected %o at index ["..n.."] at %f."})
 				end
 			end
 			if t.inline
 			then 
 				if type(t.inline) ~= "boolean" 
 				then
-					die({ fn = "xmlhttp", msg = "Hello %f." })
-				end
-			end
-			if t.post
-			then 
-				if type(t.post) ~= "string" or type(t.post) ~= "table"
-				then
-					die({ fn = "xmlhttp", msg = "Hello %f." })
-				end
-			end
-			if t.get
-			then 
-				if type(t.get) ~= "string" or type(t.get) ~= "table"
-				then
-					die({ fn = "xmlhttp", msg = "Hello %f." })
+					die({fn = "xmlhttp", on = "boolean",
+						msg = "Expected %o at index ["..n.."] at %f."})
 				end
 			end
 
-			-- ... 
+			end
 		end
 	end,
 
