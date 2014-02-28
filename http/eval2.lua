@@ -414,11 +414,8 @@ return {
 				-- die.xtype(t.group, { "string", "table" }, "E.links")
 				if type(t.group) ~= "string" and type(t.group) ~= "table"
 				then
-					die.xerror({
-						fn = "E.links",
-						on = { "string", "table" },
-						msg = "Value at index [group] in %f must be either a %o."
-					})
+					die.xerror({ fn = "E.links", on = { "string", "table" },
+						msg = "Value at index [group] in %f must be either a %o." })
 				end
 
 				if type(t.group) == 'table'
@@ -429,10 +426,9 @@ return {
 						-- Must be numerically indexed.	
 						if type(xx) == 'string'
 						then
-							die.xerror({
-								fn = "E.links",
-								msg = "Table supplied at index [group] in %f must be a " ..
-									"numerically indexed table."
+							die.xerror({ fn = "E.links",
+								msg = "Table supplied at index [group] in %f " ..
+									"must be a numerically indexed table."
 							})
 						end
 
@@ -475,21 +471,19 @@ return {
          -- Process each of the members below that were part 
          -- of the table in [t].
          ------------------------------------------------------
-			for _,v in ipairs({
-				"url_root","class","id","string","subvert","alias"	
+			local aa = {}
+			for xxnn,v in ipairs({
+				"class", "url_root", "id","string","subvert","alias"	
+			--	"url_root", "class", "id","string","subvert","alias"	
 			})
 			do
+table.insert(aa,xxnn)
 				-- Short name.
 				local vararg = t[v] or href[v]["_d_"]
-
-				-- Die if "outer" argument does not match.
-				-- die.xtype(vararg, datatypes[v]["it"])
-
-				-- Depending on type of vararg, evaluate inner and set.
-				-- There is no group negotiation needed here.
 				if type(vararg) == "string" or type(vararg) == "boolean"
 				then
 					href[v]["_d_"] = vararg
+--		response.abort({200}, t[v] .. (href[v]["_d_"])) 
 
 				-- Do some group negotiation if it's a table.
 				elseif type(vararg) == "table"
@@ -618,13 +612,6 @@ return {
 						for xx,yy in pairs(vararg)
 						do 
 							-- Otherwise, set up the table you've been given. 
-							-- Still have to run each one.
-							--[[
-							if is.value(v, {"url_root", "string", "id"})
-							then
-								href[v]["_d_"] = 
-							--]]
-
 							if v == "class"
 							then
 								-- Replace all this mess with die.xtype() calls.
@@ -634,7 +621,7 @@ return {
 
 								if type(yy) == 'string'
 								then
-									href.class._d_ = yy
+									href.class["_d_"] = yy
 								elseif type(yy) == 'table'
 								then
 									-- is.ni seems to be failing...  let's try anyway.
@@ -646,7 +633,7 @@ return {
 												"at index ["..v.."] in %f."
 										})
 									else
-										href.class._d_ = table.concat(yy," ")
+										href.class["_d_"] = table.concat(yy," ")
 									end
 								end
 
@@ -691,6 +678,8 @@ return {
 					end -- if type(vararg) == 'string' or type(vararg) == 'boolean' 
 				end -- for _,v in ipairs({
 
+
+-- response.abort({200}, table.concat(aa))
 				-- Iterate through each group asked for, if none, then iterate through _d_
 				local groupnames
 				if t and t.group then
@@ -718,11 +707,14 @@ return {
 				  --]]
 					  for __,vv in ipairs(eval.group[v])
 					  do
+--		response.abort({200}, v)
 						table.insert(links, table.concat({
 							'<a href=',    -------------------------------------------- Start the tag.
 							'"' .. tostring(href.url_root[v] or href.url_root._d_), --- Relative root. 
 							vv .. '"',     -------------------------------------------- Resource name.
-							string.set(href.class[v] or href.class._d_," class"), ----- Class name.
+							-- string.set(href.class[v] or href.class._d_," class"), ----- Class name.
+							-- " class=" .. tostring(href.class[v] or href.class._d_),
+							string.set(href.class[v] or href.class._d_, " class"), 
 							(function ()															-- ID name.
 								if href.id then return string.set(vv, " id") end      --
 							end)(),                                                  --
