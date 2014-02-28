@@ -180,342 +180,77 @@ return {
 	-- ...
 	------------------------------------------------------
 	set = function (t)
-		-- Die if e isn't a table.
+		-- Die if t isn't a table.
 		die.xtype(t, "table", "E.set")
 
-		-- We can do it a simple way here by iterating through 
-		-- what's already there with a pairs()
+		-- Iterate through t.
 		for k,v in pairs(t)
 		do
-			-- If v is a table, then you have grouped resources.
-			if type(v) == 'table'
+			-- 
+			if type(k) == 'string'
 			then
-				-- Create a new group for this key.
-				eval.group[k] = {} 
-				-- href.src[k] = {}
-
-				-- Recursion would be nice.
-				for kk,vv in pairs(v)
-				do
-					if type(vv) == 'string' 
-					then
-						-- Add this string to the new group. 
-						eval.group[k][kk] = vv
-				
-						-- Add an href link.
-						-- table.insert(href.group[k], vv)
-
-					elseif type(vv) == 'function'
-					then
-						-- Add this string to the new group. 
-						eval.group[k][kk] = vv
-				
-						-- Add an href link.
-						-- table.insert(href.group[k], kk)
-
-					elseif type(vv) == 'table'
-					then
-						die.xerror({
-							fn = "E.set",
-							msg = "%f does not support tables more than 1 level deep. "..
-					 		"Please check the value at index [" .. kk .. "] within " ..
-							"index [" .. k .. "] at table supplied to %f." 
-						})
-					elseif type(vv) == 'userdata' 
-			 		 or type(vv) == 'number' 
-			 		 or type(vv) == 'boolean' 
-			 		 or type(vv) == 'nil'
-					then
-						die.xerror({
-						-- at = (debug.traceback can retrieve where it occurred)
-						-- propagate = n (go up the chain n times to get error) 
-							fn = "E.set",
-							tn = type(vv),
-							msg = "%f cannot support tables with keys mapped to %t. "..
-					 		"Please check the value at index [" .. kk .. "] within " ..
-							"index [" .. k .. "] at table supplied to %f." 
-						})
-					end
-				end
-		
-			-- If it's a string or function, you're asking for a page in the skel
-			-- directory or defining what to run to get a payload.
-			elseif type(v) == 'string' or type(v) == 'function'
-			then
-				-- Add this string to a default group. 
-				table.insert(eval.group._d_, v)
-	
-				-- Also tell eval to make a link out of it.
---				table.insert(href.src._d_, k)
-
-			-- Typecheck your table.
-			elseif type(v) == 'userdata' 
-			 or type(v) == 'number' 
-			 or type(v) == 'boolean' 
-			 or type(v) == 'nil'
-			then
-				die.xerror({
-				-- at = (debug.traceback can retrieve where it occurred)
-				-- propagate = n (go up the chain n times to get error) 
-					fn = "E.set",
-					tn = type(v),
-					msg = "%f cannot support tables with keys mapped to %t. "..
-					 "Please check the value at index [" .. k .. "] at %f." 
-				})
-			end
-		end
-	end,
-
-	------------------------------------------------------
-	-- .set(t)
-	--
-	-- Set up what routes we'd like to work with.
-	--
-	-- *nil
-	------------------------------------------------------
-	nset = function (e)
-		------------------------------------------------------
-		-- Do we have only one route scheme defined? 
-		------------------------------------------------------
-		request.block = {}
-		if is.ni(e)
-		then 
-			table.insert(request.block,e)
-
-		------------------------------------------------------
-		-- Maybe we have multiple route schemes defined. 
-		------------------------------------------------------
-		elseif type(e) == 'table'
-		 and not is.ni(e)
-		then 
-			for k,v in pairs(e)
-			do
-				request.block[k] = v
-			end
-		end
-
-		------------------------------------------------------
-		-- Run through the single table and seperate href
-		-- and functions.
-		------------------------------------------------------
-		if is.ni(request.block) 
-		 and table.maxn(request.block) == 1
-		then
-			for k,v in pairs( request.block[1] )
-			do
-				if type(k) == 'number'
+				-- Both functions and strings can be executed upon.
+				if type(v) == 'function' or type(v) == 'string'
 				then
-					table.insert(names,v)	
-				else
-					table.insert(names,k) -- Save the name as a reference.
-					evalx[k] = v			 -- Save the executions in evalx
-				end
-			end
+					-- It's a default resource with a function bound to it.
+					table.insert(eval.group._d_, k)
+					eval.execution._d_[k] = v		-- Reference function v with k
 
-		------------------------------------------------------
-		-- Break up multiple tables of routes.
-		------------------------------------------------------
-		else
-			-- are should probably be replaced here with
-			-- any and all.
-			if are.members_of_type(request.block,'table')
-			then
-				for reqkey,reqtb in pairs( request.block )
-				do
-					------------------------------------------------------
-					-- If they aren't all tables then something else is up.
-					------------------------------------------------------
-					local uniqkey = "__" .. reqkey .. "__"
-					names[uniqkey] = {}
-					evalx[uniqkey] = {}
-					for k,v in pairs(reqtb)
+				-- Evaluate the differences in tables.
+				elseif type(v) == 'table'
+				then
+					-- Create new groups for the key.
+					eval.group[k] = {} 
+					eval.execution[k] = {} 
+
+					-- Cycle through the values in the group's table. 
+					for kk,vv in pairs(v)
 					do
-						if type(k) == 'number'
+						if type(vv) == 'string' or type(vv) == 'function'
 						then
-							table.insert(names[uniqkey],v)	
+							-- Add this string to the new group. 
+							eval.group[k][kk] = vv
+							eval.execution[k][kk] = vv
+					
+						elseif type(vv) == 'table'
+						then
+							die.xerror({
+								fn = "E.set",
+								msg = "%f does not support tables more than 1 level deep. "..
+								"Please check the value at index [" .. kk .. "] within " ..
+								"index [" .. k .. "] at table supplied to %f." 
+							})
+
 						else
-							-- Save the name as a reference.
-							table.insert(names[uniqkey],k)
-
-							 -- Save the executions in evalx
-							evalx[uniqkey][k] = v
-						end	-- type(k) == 'number'
-					end -- for k,v in paris(reqtb) ...
-				end -- for reqkey, reqtb
-			else
-				------------------------------------------------------
-				-- This should be the condition we test for and the
-				-- fallback if something else occurs.
-				------------------------------------------------------
-				for k,v in pairs( request.block )
-				do
-					if type(k) == 'number'
-					then
-						table.insert(names,v)	
-					else
-						table.insert(names,k) -- Save the name as a reference.
-						evalx[k] = v			 -- Save the executions in evalx
-					end
-				end
-			end -- if are.members
-		end -- is.ni(request.block)
-	end,
-
-
-	------------------------------------------------------
-	-- .links( map,reps )
-	--
-	-- Generate list of links from eval.  Typical behavior 
-	-- just sets up a link map relative to root.  Adding [map] 
-	-- to the mix will map links according to the map you've 
-	-- supplied within E.set(t).
-	-- 
-	-- [map] is either string or table.
-	--
-	-- *string
-	------------------------------------------------------
-	nlinks = function (map,reps)
-		local linkstr		-- Store our prepared links here.
-		local linkframe 	-- <a href=x ... ></a>
-		local linkreps		-- Number of times to repeat string replacement.
-		local links			-- Store our links table here.
-		local alias	= {}	-- Finally, put away any aliases.
-		
-		------------------------------------------------------
-		-- Iterate through argument list and figure out what
-		-- we want.
-		------------------------------------------------------
-		if type(map) == 'string'
-		then
-			request.selection = "__" .. map .. "__"
-
-			if type(reps) == 'table'
-			then
-				linkframe = reps[1] or nil	
-				linkreps  = reps[2] or nil
-			end
-
-		elseif type(map) == 'table'
-		 and not reps	
-		then
-			linkframe = map[1] or nil	
-			linkreps  = map[2] or nil
-		end 
-
-		------------------------------------------------------
-		-- Save everything in our frame for links.
-		------------------------------------------------------
-		links = table.copy( names[request.selection] or names ) 
-
-		------------------------------------------------------
-		-- Check for things we don't want.
-		------------------------------------------------------
-		if request.subvert
-	 	 and type(request.subvert) == 'table'
-		then
-			-- Work on singular resources.
-			if is.ni(request.subvert) then
-				for _,key in ipairs(request.subvert) do
-					table.remove(links, table.index(links,key))	
-				end
-			
-			-- Work on multi resources.  If [map] isn't
-			-- a string, then we did something wrong.  
-			-- Error out because eval doesn't really know
-			-- what you want.
-			else
-				if type(map) == 'string' 
-				then 	
-					if is.key(map,request.subvert) 
-					then
-						for key, value in pairs(request.subvert[map]) 
-						do
-							table.remove(links, table.index(links,value))	
+							die.xerror({
+							-- at = (debug.traceback can retrieve where it occurred)
+							-- propagate = n (go up the chain n times to get error) 
+								fn = "E.set",
+								tn = type(vv),
+								msg = "%f cannot support tables with keys mapped to %t. "..
+								"Please check the value at index [" .. kk .. "] within " ..
+								"index [" .. k .. "] at table supplied to %f." 
+							})
 						end
 					end
 				else
-					response.abort({500},[[First argument to .links() 
-						must be a string.]])
-				end
-			end
-
-		elseif request.subvert
-	 	 and type(request.subvert) == 'string'
-		 then
-			table.remove(links, table.index(links, request.subvert))
-		end
-
-		------------------------------------------------------
-		-- Set aliases.
-		------------------------------------------------------
-		if request.alias
-		then
-			for _,value in ipairs(links)
-			do 
-				if request.alias[value] then
-					alias[value] = request.alias[value]
-				end
-			end
-		end
-
-		------------------------------------------------------
-		-- Finally output links.
-		------------------------------------------------------
-		local ls,c = {},1
-		for _,key in ipairs(links) 
-		do
-			------------------------------------------------------
-			-- Slightly special link scheme needed.
-			------------------------------------------------------
-			if linkframe 
-			 and type(linkframe) == 'string'
-			 and not linkreps 
-			 then
-				if type(xhrt) == 'table' and is.value(key,xhrt) then
-					linkstr = string.format('<a id="%s" href="%s/%s">%s</a>',
-						"__" .. key, linkframe, key, alias[key] or key)
-				else 
-				linkstr = string.format('<a href="%s/%s">%s</a>',
-					linkframe, key, alias[key] or key)
+					die({ fn = "E.set", msg = "Expected %o at index ["..k.."] in %f." })
 				end
 
-			------------------------------------------------------
-			-- Custom link schemes needed.
-			------------------------------------------------------
-			elseif linkframe 
-			 and type(linkreps) == 'number' 
+			-- Evaluate numbers.
+			elseif type(k) == 'number'
 			then
-				local keys = {}
-				if linkreps > 1
+				-- v must always be a string, or bad shit will happen.
+				if type(v) == 'string'
 				then
-					for v=1,( linkreps - 1 )
-						do keys[v] = key end 
-				end
-
-				-- How do we catch error and die?
-				table.insert(keys, alias[key] or key)
-				linkstr = string.format(linkframe,unpack(keys))
-			
-			------------------------------------------------------
-			-- No special link schemes needed.
-			------------------------------------------------------
-			else 
-				if type(xhrt) == 'table' and is.value(key,xhrt) 
-				then
-					linkstr = string.format('<a id="%s" href="/%s">%s</a>',
-						"__" .. key, key, alias[key] or key)
+					-- Add this string to a default group. 
+					table.insert(eval.group._d_, v)
 				else
-				linkstr = string.format('<a href="/%s">%s</a>',
-					key, alias[key] or key)
+					die({fn = "E.set", tn = "string", 
+						msg = "Expected %t at index ["..k.."] at %f."})
 				end
 			end
-			ls[c] = linkstr
-			c = c + 1
 		end
-		
-		if request.selection then
-			request.selection = nil	end	-- Reset link schemes
-		return table.concat(ls,'\n')
 	end,
 
 	------------------------------------------------------
@@ -557,13 +292,14 @@ return {
 			-- Output a very simple link list.
 			for k,v in pairs( eval.group._d_ )
 			do
---				linkstr = string.gsub('<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', v)
+				linkstr = string.gsub('<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', v)
 				-- check if v is a string, if so, reject. 	
-				table.insert(tt, k) 
+				-- table.insert(tt, tostring(k) .. ": "..  tostring(v)) 
+				table.insert(tt, linkstr)
 			end
 
 			-- Return the links.
-			response.abort({200}, table.concat(tt))
+--			response.abort({200}, table.concat(tt,"\n"))
 			return table.concat(tt)
 
 		-- If [t] is a string, then output the links for the 
@@ -938,7 +674,7 @@ return {
 							  if href.id then return string.set(vv, " id") end 
 						  end)(),
 						  ">",																		-- Close the opening tag.
---	 				 	  href.alias[v][vv] or vv,                    					-- Resource name or alias (with working aliases).
+--	 				 	  href.alias[v][vv] or vv,                    					-- Resource name or alias
 						  vv,                      											-- Resource name only.
 						  "</a>\n" 																	-- Close the entire tag.
 					  }))	
@@ -969,10 +705,6 @@ return {
 			die.xtype(t, { "string", "table" })
 		end -- if not t 
 
-	end,
-
-	-- Return the links, because it's ugly.
-	plinks = function (t)
 	end,
 
 	------------------------------------------------------
