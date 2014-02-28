@@ -177,7 +177,7 @@ return {
 	------------------------------------------------------
 	-- .set(t)
 	--
-	-- ...
+	-- Set the E module.
 	------------------------------------------------------
 	set = function (t)
 		-- Die if t isn't a table.
@@ -192,34 +192,69 @@ return {
 				-- Both functions and strings can be executed upon.
 				if type(v) == 'function' or type(v) == 'string'
 				then
-					-- It's a default resource with a function bound to it.
-					table.insert(eval.group._d_, k)
-					eval.execution._d_[k] = v		-- Reference function v with k
+					table.insert(eval.group._d_, k)	-- Add the name only to eval.group
+					eval.execution._d_[k] = v			-- Reference function v with k
 
 				-- Evaluate the differences in tables.
 				elseif type(v) == 'table'
 				then
-					-- Create new groups for the key.
-					eval.group[k] = {} 
-					eval.execution[k] = {} 
+					eval.group[k] = {} 		-- Create a new link group for this key.
+					eval.execution[k] = {}	-- Create a new execution block for this key. 
 
 					-- Cycle through the values in the group's table. 
 					for kk,vv in pairs(v)
 					do
-						if type(vv) == 'string' or type(vv) == 'function'
+						if type(kk) == 'string'
 						then
-							-- Add this string to the new group. 
-							eval.group[k][kk] = vv
-							eval.execution[k][kk] = vv
-					
-						elseif type(vv) == 'table'
+							if type(vv) == 'string' or type(vv) == 'function'
+							then
+								-- Add this string to the new group. 
+								table.insert(eval.group[k], kk)
+								eval.execution[k][kk] = vv
+
+							elseif type(kk) == 'number'
+							then
+								-- v must always be a string, or bad shit will happen.
+								if type(vv) == 'string'
+								then
+									table.insert(eval.group[k], vv)
+								else
+									die({fn = "E.set", tn = "string", 
+										msg = "Expected %t at index ["..kk.."] at " .. 
+										"index ["..k.."] in %f."})
+								end
+						
+							elseif type(vv) == 'table'
+							then
+								die.xerror({
+									fn = "E.set",
+									msg = "%f does not support tables more than 1 level deep. "..
+									"Please check the value at index [" .. kk .. "] within " ..
+									"index [" .. k .. "] at table supplied to %f." 
+								})
+							else
+								die.xerror({
+								-- at = (debug.traceback can retrieve where it occurred)
+								-- propagate = n (go up the chain n times to get error) 
+									fn = "E.set",
+									tn = type(vv),
+									msg = "%f cannot support tables with keys mapped to %t. "..
+									"Please check the value at index [" .. kk .. "] within " ..
+									"index [" .. k .. "] at table supplied to %f." 
+								})
+							end
+
+						elseif type(kk) == 'number'
 						then
-							die.xerror({
-								fn = "E.set",
-								msg = "%f does not support tables more than 1 level deep. "..
-								"Please check the value at index [" .. kk .. "] within " ..
-								"index [" .. k .. "] at table supplied to %f." 
-							})
+							-- v must always be a string, or bad shit will happen.
+							if type(vv) == 'string'
+							then
+								-- Add this string to a default group. 
+								table.insert(eval.group[k], vv)
+							else
+								die({fn = "E.set", tn = "string", 
+									msg = "Expected %t at index ["..k.."] at %f."})
+							end
 
 						else
 							die.xerror({
@@ -247,7 +282,7 @@ return {
 					table.insert(eval.group._d_, v)
 				else
 					die({fn = "E.set", tn = "string", 
-						msg = "Expected %t at index ["..k.."] at %f."})
+						msg = "Expected type string at index ["..k.."] at %f. Got %t."})
 				end
 			end
 		end
@@ -299,7 +334,6 @@ return {
 			end
 
 			-- Return the links.
---			response.abort({200}, table.concat(tt,"\n"))
 			return table.concat(tt)
 
 		-- If [t] is a string, then output the links for the 
@@ -311,7 +345,7 @@ return {
 			die.xnil(eval.group[t])
 			
 			-- Output a very simple link list.
-			for k,v in ipairs( href.group[t] )
+			for k,v in ipairs( eval.group[t] )
 			do
 				linkstr = string.gsub('<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', v)
 				table.insert(tt, linkstr) 
@@ -324,9 +358,7 @@ return {
 		-- functionality.
 		elseif type(t) == 'table'
 		then
-			-- See below for a short explanation.
-			--
-			-- datatypes = {
+			-- The table datatypes below contains:
 			-- [k] = {  		-- The argument in t with the values you want to extract.
 			-- 	[it] = []	-- The datatype expected for this argument.
 			-- 	[ig] = []   -- If datatype of [it] is a table, and a group has been
@@ -362,10 +394,20 @@ return {
 					ig = "string" }
 			}
 
-			-- Get the keys from [t]
-			t = table.retrieve(table.keys(href), t)	-- Clear group, b/c issues will occur...
+         ------------------------------------------------------
+			-- Each of the keys thrown need to be handled in a slightly
+			-- different way.  Use this table to handle that.
+         ------------------------------------------------------
+			local preparation = {}
 
+         ------------------------------------------------------
+			-- Get the keys from [t]
+         ------------------------------------------------------
+			t = table.retrieve(table.keys(href), t)
+
+         ------------------------------------------------------
 			-- Check if the group exists.
+         ------------------------------------------------------
 			if t and t.group
 			then
 				-- Do a quick type check.
@@ -387,32 +429,32 @@ return {
 						-- Must be numerically indexed.	
 						if type(xx) == 'string'
 						then
-						die.xerror({
-							fn = "E.links",
-							msg = "Table supplied at index [group] in %f must be a " ..
-						 		"numerically indexed table."
-						})
+							die.xerror({
+								fn = "E.links",
+								msg = "Table supplied at index [group] in %f must be a " ..
+									"numerically indexed table."
+							})
 						end
 
 						-- Check that a string was given.
 						-- die.xtype(yy, "string", "E.links")
 						if type(yy) ~= "string"
 						then
-						die.xerror({
-							fn = "E.links", tn = type( yy ),
-							msg = "Argument at index ["..xx.."] at index " ..
-							"[group] in %f is of incorrect %t."
-						})
-					 	end
+							die.xerror({
+								fn = "E.links", tn = type( yy ),
+								msg = "Argument at index ["..xx.."] at index " ..
+								"[group] in %f is of incorrect %t."
+							})
+						end
 
 						-- Die if the group does not exist.
 						if not is.key(yy, eval.group)
 						then
-						die.xerror({
-							fn = "E.links",
-							msg = "Group name '" .. xx .. "' does not "
-							.. "exist at %f."
-						})
+							die.xerror({
+								fn = "E.links",
+								msg = "Group name '" .. xx .. "' does not "
+								.. "exist at %f."
+							})
 						end
 					end
 
@@ -429,14 +471,16 @@ return {
 				end
 			end -- if t and t.group
 
-			-- Handle everything else. 
+         ------------------------------------------------------
+         -- Process each of the members below that were part 
+         -- of the table in [t].
+         ------------------------------------------------------
 			for _,v in ipairs({
 				"url_root","class","id","string","subvert","alias"	
 			})
 			do
 				-- Short name.
 				local vararg = t[v] or href[v]["_d_"]
-				-- local default = href[v]["_d_"]
 
 				-- Die if "outer" argument does not match.
 				-- die.xtype(vararg, datatypes[v]["it"])
@@ -445,7 +489,8 @@ return {
 				-- There is no group negotiation needed here.
 				if type(vararg) == "string" or type(vararg) == "boolean"
 				then
-					href[v]["_d_"] = vararg 
+					href[v]["_d_"] = vararg
+
 				-- Do some group negotiation if it's a table.
 				elseif type(vararg) == "table"
 				then
@@ -472,9 +517,11 @@ return {
 							then
 								-- Set the url root for a group.
 								-- Replace all this mess with die.xtype() calls.
-								if type(yy) ~= "string" then
-								die.xerror({ fn = "E.links", tn = type(yy), 
-									msg = "Received %t at index ["..v.."] at %f. Expected <i>string</i>." }) 
+								if type(yy) ~= "string" 
+								then
+									die.xerror({ fn = "E.links", tn = type(yy), 
+										msg = "Received %t at index ["..v.."] at %f. " ..
+										"Expected <i>string</i>." }) 
 								end
 								href.url_root[xx] = yy
 
@@ -482,18 +529,23 @@ return {
 							then
 								-- Set the url root for a group.
 								-- Replace all this mess with die.xtype() calls.
-								if type(yy) ~= "boolean" then
-								die.xerror({ fn = "E.links", tn = type(yy), 
-									msg = "Received %t at index ["..v.."] at %f. Expected <i>boolean</i>." }) 
+								if type(yy) ~= "boolean" 
+								then
+									die.xerror({ fn = "E.links", tn = type(yy), 
+										msg = "Received %t at index ["..v.."] at %f. " ..
+										"Expected <i>boolean</i>." }) 
 								end
 								href.id[xx] = yy
 
 							elseif v == "class"
 							then
 								-- Replace all this mess with die.xtype() calls.
-								if type(yy) ~= "string" and type(yy) ~= "table" then
-								die.xerror({ fn = "E.links", tn = type(yy), 
-									msg = "Received %t at index ["..xx.."] at index ["..v.."] at %f." }) end
+								if type(yy) ~= "string" and type(yy) ~= "table" 
+								then
+									die.xerror({ fn = "E.links", tn = type(yy), 
+										msg = "Received %t at index ["..xx.."] at " .. 
+										"index ["..v.."] at %f." }) 
+								end
 
 								if type(yy) == 'string'
 								then
@@ -567,6 +619,12 @@ return {
 						do 
 							-- Otherwise, set up the table you've been given. 
 							-- Still have to run each one.
+							--[[
+							if is.value(v, {"url_root", "string", "id"})
+							then
+								href[v]["_d_"] = 
+							--]]
+
 							if v == "class"
 							then
 								-- Replace all this mess with die.xtype() calls.
@@ -634,52 +692,46 @@ return {
 				end -- for _,v in ipairs({
 
 				-- Iterate through each group asked for, if none, then iterate through _d_
-				local group
-				if t then
-				  group = t.group or eval.group 
+				local groupnames
+				if t and t.group then
+				  groupnames = t.group -- or eval.group
 				else
-				  group = eval.group
+				  groupnames = { "_d_" }
 				end
 
 				local links = {}
-				for __,v in ipairs(group) -- href.group[href.group] )
+				for __,v in ipairs(groupnames) -- href.group[href.group] )
 				do
 				  ---[[
 				  -- Move through strings doing replacements.
 				  if t and t.string and t.string[v]
 				  then
-					  for __,v in ipairs(group) -- href.group[href.group] )
-					  do
-						  -- Will use a custom syntax.
-						  for __,vv in ipairs(eval.group[v])
-						  do
-							  new_string = string.gsub(tostring(t.string[v]), '%%s', vv)
-							  -- table.insert(a, new_string)   -- Use either string group.
-							  table.insert(links, new_string)   -- Use either string group.
-						  end
-					  end
+						-- Will use a custom syntax.
+						for __,vv in ipairs(eval.group[v])
+						do
+							new_string = string.gsub(tostring(t.string[v]), '%%s', vv)
+							table.insert(links, new_string) 
+						end
 
 				  -- Move through the rest.
 				  else
 				  --]]
 					  for __,vv in ipairs(eval.group[v])
 					  do
-				  ---[[
-					  table.insert(links, table.concat({
-						  '<a href=',  															-- Start the tag.
-						  '"' .. tostring(href.url_root[v] or href.url_root._d_),	-- Relative root. 
-						  vv .. '"',                                       			-- Resource name.
-						  string.set(href.class[v] or href.class._d_," class"), 		-- Class name.
-						  (function ()																-- ID name.
-							  if href.id then return string.set(vv, " id") end 
-						  end)(),
-						  ">",																		-- Close the opening tag.
---	 				 	  href.alias[v][vv] or vv,                    					-- Resource name or alias
-						  vv,                      											-- Resource name only.
-						  "</a>\n" 																	-- Close the entire tag.
-					  }))	
-					  --]]
-					  end -- for __,vv in ipairs(eval.group[v])
+						table.insert(links, table.concat({
+							'<a href=',    -------------------------------------------- Start the tag.
+							'"' .. tostring(href.url_root[v] or href.url_root._d_), --- Relative root. 
+							vv .. '"',     -------------------------------------------- Resource name.
+							string.set(href.class[v] or href.class._d_," class"), ----- Class name.
+							(function ()															-- ID name.
+								if href.id then return string.set(vv, " id") end      --
+							end)(),                                                  --
+							">",           -------------------------------------------- Close the opening tag.
+					--		href.alias[v][vv] or vv, ---------------------------------- Resource name or alias
+							vv,            -------------------------------------------- Resource name only.
+							"</a>\n"       -------------------------------------------- Close the entire tag.
+						}))	
+					 end -- for __,vv in ipairs(eval.group[v])
 				  end -- if t and t.string and t.string[v]
 			  end -- for __,v in ipairs(group)
 					  
