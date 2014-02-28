@@ -317,6 +317,9 @@ return {
 		-- Create a blank table.
 		local tt = {}
 
+		-- Copy defaults
+		local defaults = table.clone(href) 
+
 		-- If [t] is blank, then output the links 
 		-- as a string.
 		if not t
@@ -489,8 +492,8 @@ table.insert(aa,xxnn)
 				elseif type(vararg) == "table"
 				then
 					-- Run checks with supplied groups.
-					if t and t.group
-					then
+					-- if t and t.group
+					-- then
 						-- Cycle through the other indices. 
 						for xx,yy in pairs(vararg)
 						do 
@@ -563,8 +566,9 @@ table.insert(aa,xxnn)
 							then
 								-- Replace all this mess with die.xtype() calls.
 								if type(yy) ~= "string" and type(yy) ~= "table" then
-								die.xerror({ fn = "E.links", tn = type(yy), 
-									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) end
+									die.xerror({ fn = "E.links", tn = type(yy), 
+								msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
+								end
 			
 								-- Pop these from whatever you're generating links on.
 								-- href.url[xx] = yy
@@ -590,90 +594,18 @@ table.insert(aa,xxnn)
 								end
 								--]]
 		
-								-- Finally make a table for these aliases if there isn't one and save each.
-								if not href.alias[xx] then href.alias[xx] = {} end
-								for akey,aval in pairs(yy) do href.alias[xx][akey] = aval end
-							end -- if is.value(v, {"url_root", "string"})
-						end -- for xx,yy in pairs(vararg)
-
-					-- Not setting up any groups, so a lot of these will be wrong if
-					-- a table has made it there.
-					else
-						-- Check for numerically indexed tables.
-						if not is.value(v,{"class", "alias", "subvert"}) 
-						then
-							die.xerror({
-								fn = "E.links", tn = type(t[v]),
-								msg = "Received %t at index ["..v.."] at %f.  Expected non-table value."
-							})
-						end
-
-						-- Cycle through the other indices. 
-						for xx,yy in pairs(vararg)
-						do 
-							-- Otherwise, set up the table you've been given. 
-							if v == "class"
-							then
-								-- Replace all this mess with die.xtype() calls.
-								if type(yy) ~= "string" and type(yy) ~= "table" then
-								die.xerror({ fn = "E.links", tn = type(yy), 
-									msg = "Received %t at index ["..v.."] at %f." }) end
-
-								if type(yy) == 'string'
-								then
-									href.class["_d_"] = yy
-								elseif type(yy) == 'table'
-								then
-									-- is.ni seems to be failing...  let's try anyway.
-									if not is.ni(yy) 
-									then
-										die.xerror({
-											fn = "E.links",
-											msg = "Incorrect table type received at index ["..xx.."] " ..
-												"at index ["..v.."] in %f."
-										})
-									else
-										href.class["_d_"] = table.concat(yy," ")
-									end
+								-- Finally make a table for these aliases 
+								-- if there isn't one and save each.
+								if not href.alias[xx] 
+								then 
+									href.alias[xx] = {} 
 								end
 
-							elseif v == "subvert"
-							then
-								-- Replace all this mess with die.xtype() calls.
-								if type(yy) ~= "string" and type(yy) ~= "table" then
-								die.xerror({ fn = "E.links", tn = type(yy), 
-									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) end
-			
-								-- Pop these from whatever you're generating links on.
-								-- href.url[xx] = yy
-
-							elseif v == "alias"
-							then
-								-- Replace all this mess with die.xtype() calls.
-								if type(yy) ~= "string" and type(yy) ~= "table" then
-								die.xerror({ fn = "E.links", tn = type(yy), 
-									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
-								end
-			
-								-- Check that the group name for the alias exists?
-								--[[
-								if 
-								die.xerror({ fn = "E.links", tn = type(yy), 
-									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
-								end
-
-								-- Should also check that the resource name exists?
-								die.xerror({ fn = "E.links", tn = type(yy), 
-									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
-								end
-								--]]
-		
-								-- Finally make a table for these aliases if there isn't one and save each.
 								for akey,aval in pairs(yy) 
 								do 
-									href.alias._d_[akey] = aval 
+									href.alias[xx][akey] = aval 
 								end
-							end -- if v == 'class'
+							end -- if is.value(v, {"url_root", "string"})
 						end -- for xx,yy in pairs(vararg)
 					end -- if type(vararg) == 'string' or type(vararg) == 'boolean' 
 				end -- for _,v in ipairs({
@@ -726,29 +658,22 @@ table.insert(aa,xxnn)
 					 end -- for __,vv in ipairs(eval.group[v])
 				  end -- if t and t.string and t.string[v]
 			  end -- for __,v in ipairs(group)
-					  
+	
+			  -- My processing is done.
+			  href = defaults		-- Reset to defaults.
+--			  response.abort({200}, table.as_string(defaults["class"]))
 			  local as = t.as or href.as
-				  
-			  -- A way to do the below in one line.
-			  -- If as were a string, then return table.concat(links, "\n")
-			  -- return on.mtype(as, { string = table.concat(links,"\n"), table = links })
-			  -- If as evaluates to "string", then return table.concat(links, "\n")
-			  -- return on.meval(as, { string = table.concat(links,"\n"), table = links })
-			  -- If as is true then return table.concat(links, "\n")
-			  -- return on.mbool?(as, table.concat(links,"\n"), links )
 			  if as == 'string' 
 			  then 
 				  return table.concat(links,"\n")
 			  else 
 				  return links
 			  end
-			end -- elseif type(t) == 'table'
 	
 		-- Catch bad arguments to E.links()
 		else
 			die.xtype(t, { "string", "table" })
 		end -- if not t 
-
 	end,
 
 	------------------------------------------------------

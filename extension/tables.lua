@@ -903,6 +903,29 @@ local t = {
 	end,
 
 	------------------------------------------------------
+	-- .clone(t)
+	--
+	-- Makes a deep copy of a Lua table, instead of just
+	-- a new reference.
+	--
+	-- *table
+	------------------------------------------------------
+	clone = function (t)
+		if type(t) ~= "table" then return t end
+		local meta = getmetatable(t)
+		local target = {}
+		for k,v in pairs(t) do
+			if type(v) == 'table' then
+				target[k] = table.clone(v)
+			else
+				target[k] = v
+			end
+		end
+		setmetatable(target, meta)
+		return target
+	end,
+
+	------------------------------------------------------
 	-- .fill_with_key(t,key) 
 	--
 	-- File the values that correspond with key from some 
