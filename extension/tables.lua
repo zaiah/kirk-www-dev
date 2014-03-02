@@ -541,6 +541,14 @@ local t = {
 	-- *table
 	------------------------------------------------------
 	["retrieve"] = function (t,mt)
+		if not mt
+		then
+			die.xerror({
+				fn = "table.retrieve",
+				msg = "%f requires two arguments."
+			})
+		end
+
 		if t and is.ni(t)
 		then
 			local tt = {}

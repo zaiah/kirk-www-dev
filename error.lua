@@ -116,6 +116,7 @@ local function die(t)
 	-- Check t if there is one.
 	local t = table.retrieve({ 
 		"msg", 
+		"altstatus", 
 		"fn", 
 		"tn",
 		"an",
@@ -123,7 +124,7 @@ local function die(t)
 	}, t)
 
 	-- Create some local spaces.
-	local m
+	local m,s
 
 	-- If t.msg exists, then search to see if a 
 	-- replacement is needed.
@@ -139,6 +140,9 @@ local function die(t)
 		elseif t.fn then
 			die_default("No function name(s) supplied within module die.")
 		end
+
+		-- Catch alternate messages.
+		s = t.altstatus
 
 		-- Catch type names.
 		---[[
@@ -178,7 +182,7 @@ local function die(t)
 	-- Send completed death message. 
 	response.abort({500}, render.file({{
 		msg 			= m or "A server error has occurred.",
-		status 		= scodes[500],
+		status 		= s or scodes[500],
 		code 			= 500,
 		stacktrace 	= debug.traceback(),	
 	}}, "error"))
@@ -420,5 +424,20 @@ return {
 	--
 	-- *nil
    ------------------------------------------------------
-	xerror = die
+	xerror = die,
+
+   ------------------------------------------------------
+	-- .quick(m)
+	--
+	-- Die with no excess, except a descriptive message.
+	-- Used mostly for testing.
+	--
+	-- *nil
+   ------------------------------------------------------
+	quick = function (m)
+		die({
+			altstatus = "Debugging Message",
+			msg = m
+		})
+	end
 }

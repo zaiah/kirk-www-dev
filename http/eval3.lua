@@ -99,7 +99,6 @@ local eval = {
 	xmlhttp 		= {["_d_"] = {}}  	-- Which groups get XMLHttp requests?
 }
 
-
 ------------------------------------------------------
 -- js_dump str
 --
@@ -108,27 +107,6 @@ local eval = {
 -- Javascript scaffolding. 
 ------------------------------------------------------
 local js_dump = {}
-
-------------------------------------------------------
--- typecheck_me(x)
---
--- Instead of complex die.xtype() calls littered
--- through each of the functions, let's try working
--- through as much of the logic as possible here.
---
--- Notice that each table above has a default value
--- that matches the type that the modifying function
--- is supposed to receive. 
-------------------------------------------------------
-
-
-
-------------------------------------------------------
--- generate_href
---
--- Goes through a fairly long process to create
--- a hyperlink reference.
-------------------------------------------------------
 
 ------------------------------------------------------
 -- eval {}
@@ -370,7 +348,7 @@ return {
 			for k,v in pairs( eval.group._d_ )
 			do
 				linkstr = string.gsub(
-				'<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', v)
+					'<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', v)
 				-- check if v is a string, if so, reject. 	
 				-- table.insert(tt, tostring(k) .. ": "..  tostring(v)) 
 				table.insert(tt, linkstr)
@@ -402,56 +380,105 @@ return {
 		-- functionality.
 		elseif type(t) == 'table'
 		then
-			-- The table datatypes below contains:
-			-- [k] = {  		-- The argument in t with the values you want to extract.
-			-- 	[it] = []	-- The datatype expected for this argument.
-			-- 	[ig] = []   -- If datatype of [it] is a table, and a group has been
-			-- 	            -- selected, then [ig] is the datatype expected of the 
-			-- 	            -- value that the group key corresponds to.
-			-- 	[iv] = []   -- If datatype of [it] is a table, and no group has been
-			-- 	            -- selected, then [iv] is the datatype expected of each
-			-- 	            -- index in the table.
-			--	}}
-			local datatypes = {
-				as = { it = "string" },
-				url_root = { 
-					it = {"string", "table"}, 
-					ig = "string" },
+			-- Refer to interface/extension/shuffler.lua for more on
+			-- this big baby of a table.
+			local validation = {
+				-- Handle classes.
 				class = { 
-					it = {"string", "table"}, 
-					iv = { "string", "table" }, 
-					ig = { "string", "table" }},
+					datatypes = { "string", "atable", "ntable" }, 
+					_string = function (x)
+						href.class["_d_"] = x
+						return false
+					end,
+					_atable = function (x)
+						for xx,yy in pairs(x) do
+							if is.value(xx, table.keys(eval.group)) then
+								if type(yy) == 'table' and is.ni(yy) then
+									href.class[xx] = table.concat(yy," ")
+								elseif type(yy) == 'string' then
+									href.class[xx] = yy
+								end
+							end
+						end	
+						return false 
+					end,
+					_ntable = function (x) -- Are the typechecks done here?
+						if is.ni(x) then
+							href[v]["_d_"] = table.concat(x," ")
+						end
+						return false 
+					end,
+				},
+
+				url_root = { 
+					datatypes = { "string", "atable" },
+					_string = function (x)
+						href.url_root["_d_"] = x
+					end,
+					_atable = function (x) 
+						for xx,yy in pairs(x) do
+							if is.value(xx, table.keys(eval.group)) then
+								href.url_root[xx] = yy 
+							end
+						end
+					end,
+				},
+
 				id = { 
-					it = {"boolean", "table"}, 
-					ig = "boolean" },
+					datatypes = { "atable", "boolean" },
+					_boolean = function (x) 
+						href.id["_d_"] = x 
+					end,
+					_atable = function (x)
+						for xx,yy in pairs(x) do
+							if is.value(xx, table.keys(eval.group)) then
+								if type(yy) == "boolean" then
+									href.id[xx] = yy 
+								end
+							end
+						end
+					end,
+				},
+
 				string = { 
-					it = {"string", "table"}, 
-					ig = "string" },
+					datatypes = { "string", "atable" },
+					_string = function (x)
+						href.string["_d_"] = x 
+					end,
+					_atable = function (x) 
+						for xx,yy in pairs(x) do
+							if is.value(xx, table.keys(eval.group)) then
+								href.string[xx] = yy 
+							end
+						end
+					end,
+				},
+
 				subvert = { 
-					it = {"string", "table"}, 
-					ig = { "string", "table" }},
-				group = { 
-					it = {"string", "table"}, 
-					ig = "string" },
+					datatypes = { "string", "table" }, 
+					_string = function () 
+					end,
+					_table = function () 
+					end,
+				},
+
 				alias = { 
-					it = "table", 
-					ig = "string" }
+					datatypes = "atable", 
+					_atable = function () 
+					end,
+				},
 			}
-
-         ------------------------------------------------------
-			-- Each of the keys thrown need to be handled in a slightly
-			-- different way.  Use this table to handle that.
-         ------------------------------------------------------
-			local preparation = {}
-
+			
          ------------------------------------------------------
 			-- Get the keys from [t]
          ------------------------------------------------------
 			t = table.retrieve(table.keys(href), t)
 
          ------------------------------------------------------
-			-- Check if the group exists.
+			-- Check if the group exists, and set something for
+			-- our final link output loop.
          ------------------------------------------------------
+			local groupnames
 			if t and t.group
 			then
 				-- Do a quick type check.
@@ -500,7 +527,7 @@ return {
 
 				-- Check if the string is actually a group member.
 				else
-					if not is.key(t.group, href.group)
+					if not is.key(t.group, eval.group)
 					then
 						die.xerror({
 							fn = "E.links",
@@ -509,6 +536,9 @@ return {
 						})
 					end
 				end
+				groupnames = t.group -- or eval.group
+			else
+				groupnames = { "_d_" }
 			end -- if t and t.group
 
          ------------------------------------------------------
@@ -517,199 +547,63 @@ return {
          ------------------------------------------------------
 			local aa = {}
 			for xxnn,v in ipairs({
-				"class", "url_root", "id","string","subvert","alias"	
-			--	"url_root", "class", "id","string","subvert","alias"	
+				"class", "url_root", "id","string" -- ,"subvert","alias"	
 			})
 			do
-table.insert(aa,xxnn)
-				-- Short name.
-				local vararg = t[v] or href[v]["_d_"]
-				if type(vararg) == "string" or type(vararg) == "boolean"
+				if t[v]
 				then
-					href[v]["_d_"] = vararg
---		response.abort({200}, t[v] .. (href[v]["_d_"])) 
-
-				-- Do some group negotiation if it's a table.
-				elseif type(vararg) == "table"
-				then
-					-- Run checks with supplied groups.
-					-- if t and t.group
-					-- then
-						-- Cycle through the other indices. 
-						for xx,yy in pairs(vararg)
-						do 
-							-- Check for numerically indexed tables.
-							if is.value(v,{"url_root","id","string","alias"}) 
-						 	 and type(xx) == 'number'
-							then
-								die.xerror({
-									fn = "E.links", 
-									msg = "Received the wrong table type at index"
-								 	.. " [" .. v .. "] in %f."
-								})
-							end
-
-							-- Otherwise, set up the table you've been given. 
-							-- Still have to run each one.
-							if is.value(v, {"url_root", 'string'})
-							then
-								-- Set the url root for a group.
-								-- Replace all this mess with die.xtype() calls.
-								if type(yy) ~= "string" 
-								then
-									die.xerror({ fn = "E.links", tn = type(yy), 
-										msg = "Received %t at index ["..v.."] at %f. " ..
-										"Expected <i>string</i>." }) 
-								end
-								href.url_root[xx] = yy
-
-							elseif v == 'id'
-							then
-								-- Set the url root for a group.
-								-- Replace all this mess with die.xtype() calls.
-								if type(yy) ~= "boolean" 
-								then
-									die.xerror({ fn = "E.links", tn = type(yy), 
-										msg = "Received %t at index ["..v.."] at %f. " ..
-										"Expected <i>boolean</i>." }) 
-								end
-								href.id[xx] = yy
-
-							elseif v == "class"
-							then
-								-- Replace all this mess with die.xtype() calls.
-								if type(yy) ~= "string" and type(yy) ~= "table" 
-								then
-									die.xerror({ fn = "E.links", tn = type(yy), 
-										msg = "Received %t at index ["..xx.."] at " .. 
-										"index ["..v.."] at %f." }) 
-								end
-
-								if type(yy) == 'string'
-								then
-									href.class[xx] = yy
-								elseif type(yy) == 'table'
-								then
-									-- is.ni seems to be failing...  let's try anyway.
-									if not is.ni(yy) 
-									then
-										die.xerror({
-											fn = "E.links",
-											msg = "Incorrect table type received at index ["..xx.."] " ..
-												"at index ["..v.."] in %f."
-										})
-									else
-										href.class[xx] = table.concat(yy," ")
-									end
-								end
-
-							elseif v == "subvert"
-							then
-								-- Replace all this mess with die.xtype() calls.
-								if type(yy) ~= "string" and type(yy) ~= "table" then
-									die.xerror({ fn = "E.links", tn = type(yy), 
-								msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
-								end
-			
-								-- Pop these from whatever you're generating links on.
-								-- href.url[xx] = yy
-
-							elseif v == "alias"
-							then
-								-- Replace all this mess with die.xtype() calls.
-								if type(yy) ~= "string" and type(yy) ~= "table" then
-								die.xerror({ fn = "E.links", tn = type(yy), 
-									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
-								end
-			
-								-- Check that the group name for the alias exists?
-								--[[
-								if 
-								die.xerror({ fn = "E.links", tn = type(yy), 
-									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
-								end
-
-								-- Should also check that the resource name exists?
-								die.xerror({ fn = "E.links", tn = type(yy), 
-									msg = "Received %t at index ["..xx.."] at index ["..v.."] in %f." }) 
-								end
-								--]]
-		
-								-- Finally make a table for these aliases 
-								-- if there isn't one and save each.
-								if not href.alias[xx] 
-								then 
-									href.alias[xx] = {} 
-								end
-
-								for akey,aval in pairs(yy) 
-								do 
-									href.alias[xx][akey] = aval 
-								end
-							end -- if is.value(v, {"url_root", "string"})
-						end -- for xx,yy in pairs(vararg)
-					end -- if type(vararg) == 'string' or type(vararg) == 'boolean' 
-				end -- for _,v in ipairs({
-
-
--- response.abort({200}, table.concat(aa))
-				-- Iterate through each group asked for, if none, then iterate through _d_
-				local groupnames
-				if t and t.group then
-				  groupnames = t.group -- or eval.group
-				else
-				  groupnames = { "_d_" }
+					shuffle(validation, t[v], v, "E.links")
 				end
+			end
 
-				local links = {}
-				for __,v in ipairs(groupnames) -- href.group[href.group] )
-				do
-				  ---[[
-				  -- Move through strings doing replacements.
-				  if t and t.string and t.string[v]
-				  then
-						-- Will use a custom syntax.
-						for __,vv in ipairs(eval.group[v])
-						do
-							new_string = string.gsub(tostring(t.string[v]), '%%s', vv)
-							table.insert(links, new_string) 
-						end
+			local links = {}
+			for __,v in ipairs(groupnames) -- href.group[href.group] )
+			do
+				-- Move through strings doing replacements.
+				if t and t.string and t.string[v]
+				then
+					-- Will use a custom syntax.
+					for __,vv in ipairs(eval.group[v])
+					do
+						new_string = string.gsub(tostring(t.string[v]), '%%s', vv)
+						table.insert(links, new_string) 
+					end
 
-				  -- Move through the rest.
-				  else
-				  --]]
-					  for __,vv in ipairs(eval.group[v])
-					  do
---		response.abort({200}, v)
-						table.insert(links, table.concat({
-							'<a href=',    -------------------------------------------- Start the tag.
-							'"' .. tostring(href.url_root[v] or href.url_root._d_), --- Relative root. 
-							vv .. '"',     -------------------------------------------- Resource name.
-							-- string.set(href.class[v] or href.class._d_," class"), ----- Class name.
-							-- " class=" .. tostring(href.class[v] or href.class._d_),
-							string.set(href.class[v] or href.class._d_, " class"), 
-							(function ()															-- ID name.
-								if href.id then return string.set(vv, " id") end      --
-							end)(),                                                  --
-							">",           -------------------------------------------- Close the opening tag.
-					--		href.alias[v][vv] or vv, ---------------------------------- Resource name or alias
-							vv,            -------------------------------------------- Resource name only.
-							"</a>\n"       -------------------------------------------- Close the entire tag.
-						}))	
-					 end -- for __,vv in ipairs(eval.group[v])
-				  end -- if t and t.string and t.string[v]
-			  end -- for __,v in ipairs(group)
-	
-			  -- My processing is done.
-			  href = defaults		-- Reset to defaults.
+				-- Move through the rest.
+				else
+					for __,vv in ipairs(eval.group[v])
+					do
+					table.insert(links, table.concat({
+						'<a href=',    -------------------------------------------- Start the tag.
+						'"' .. tostring(href.url_root[v] or href.url_root._d_), --- Relative root. 
+						vv .. '"',     -------------------------------------------- Resource name.
+						-- string.set(href.class[v] or href.class._d_," class"), ----- Class name.
+						-- " class=" .. tostring(href.class[v] or href.class._d_),
+						string.set(href.class[v] or href.class._d_, " class"), 
+						(function ()															-- ID name.
+							if href.id[v] or href.id._d_ then 							--
+								return string.set(vv, " id")								--
+							else return "" end     											-- 
+						end)(),                                                  --
+						">",           -------------------------------------------- Close the opening tag.
+				--		href.alias[v][vv] or vv, ---------------------------------- Resource name or alias
+						vv,            -------------------------------------------- Resource name only.
+						"</a>\n"       -------------------------------------------- Close the entire tag.
+					}))	
+					end -- for __,vv in ipairs(eval.group[v])
+				end -- if t and t.string and t.string[v]
+			end -- for __,v in ipairs(group)
+
+			-- My processing is done.
+			href = defaults		-- Reset to defaults.
 --			  response.abort({200}, table.as_string(defaults["class"]))
-			  local as = t.as or href.as
-			  if as == 'string' 
-			  then 
-				  return table.concat(links,"\n")
-			  else 
-				  return links
-			  end
+			local as = t.as or href.as
+			if as == 'string' 
+			then 
+				return table.concat(links,"\n")
+			else 
+				return links
+			end
 	
 		-- Catch bad arguments to E.links()
 		else

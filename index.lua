@@ -98,6 +98,7 @@ C 			= require("ds.content")				-- Get something from a database.
 as 		= require("ds.serialization")		-- Serialization formats.
 render 	= require("template/render")		-- Template rendering.
 die		= require("error")					-- Ridiculous error handling.
+shuffle  = require("extension.shuffler")	-- Shuffle keys from a table.
  
 response = require("http.response")
 content_types = require("http.content-types")

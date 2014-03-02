@@ -210,10 +210,12 @@ local is = {
 		local status = false
 		if not t or is.ni(t) --t[table.maxn(t)]
 		then
-			response.abort({500}, 
-				"Table supplied to is.key(n,t) not in correct format.")
+			die.xerror({
+				fn = "is.key",
+				msg = "Received numerically indexed table at %f. " .. 
+				"Expected alphabetically indexed table."
+			})
 		end
-
 	
 		for key,_ in pairs(t) do
 			if tval == key 
