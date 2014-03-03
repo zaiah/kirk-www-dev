@@ -455,7 +455,7 @@ return {
 				},
 
 				subvert = { 
-					datatypes = { "string", "table" }, 
+					datatypes = { "string", "atable", "ntable" }, 
 					_string = function () 
 					end,
 					_table = function () 
@@ -890,6 +890,115 @@ return {
 	-- *nil or *string
 	------------------------------------------------------
 	serve = function (int,xpath)
+		local int = int or table.maxn(data.url) 
+		local active_url = data.url[int]
+		local snames = names[request.selection] or names
+
+		------------------------------------------------------
+		-- local find_file (filename)
+		-- 
+		-- Find [filename] by extension.
+		-- *string
+		------------------------------------------------------
+		local function find_file( filename )
+			for _,inc in ipairs({"skel","html"})
+			do
+				local FF = add[inc]( filename )
+				if FF then
+					return FF or "" 
+				end
+			end
+		end
+
+		------------------------------------------------------
+		-- local x_or_not( xblock )
+		--
+		-- Execute or present string returned by [xblock] 
+		-- either by using XMLHttpRequest or a typical return.
+		--
+		-- *string or *nil
+		------------------------------------------------------
+		local function x_or_not( req, xblock )
+			-- Is this resource autobound to JS?	
+			if type(xhrt) == 'table' 
+			 and is.value(req,xhrt) 
+			then
+				response.abort({200}, xblock)
+
+			-- If not serve like normal.
+			else
+				return xblock
+			end
+		end
+
+		------------------------------------------------------
+		-- Check groupnames supplied in xpath, dying if 
+		-- they haven't been used before.
+		------------------------------------------------------
+		local groupnames = {}
+		if xpath and type(xpath) == 'string' then
+			table.insert(groupnames, xpath)
+		elseif xpath and type(xpath) == 'table' then
+			if not is.ni(xpath) then 
+				die.xerror({ fn = "E.serve", msg = "Not correct type at %f" })
+			end
+			for xx,vv in ipairs(xpath) do
+				if is.value(xpath, table.keys(eval.group)) then
+						table.insert(groupnames, vv)
+				else 
+					die.xerror({ fn = "E.serve", 
+						msg =  "No group named "..vv.." at %f" })
+				end
+			end
+		elseif not xpath
+		then
+			table.insert(groupnames, "_d_")
+		else
+			-- incorrect type or argument has been thrown
+			die.xerror({ fn = "E.serve", 
+				msg =  "Incorrect argument 2 at %f." })
+		end
+
+		------------------------------------------------------
+		-- Evaluate whatever code is tied to the function.
+		------------------------------------------------------
+		for kk,yy in ipairs(groupnames)
+		do
+			if is.value(active_url, eval.group[yy])
+			 and is.key(active_url, eval.execution[yy])
+			then
+				return x_or_not( active_url, eval.execution[yy][active_url]() ) or nil
+
+			------------------------------------------------------
+			-- Do a file include.
+			------------------------------------------------------
+			elseif is.value(active_url, eval.group[yy])
+			then
+				if request.xpath and type(request.xpath) == 'string' then
+				--	return find_file( string.format("%s/%s",request.xpath, active_url) )
+					return x_or_not( request.xpath, 
+						find_file( string.format("%s/%s", request.xpath, active_url) )) or nil
+				else
+				--	return find_file( active_url ) end
+					return x_or_not( active_url, find_file( active_url )) or nil 
+				end
+			end
+		end
+	end,
+
+	------------------------------------------------------
+	-- .serve(int,xpath)
+	--
+	-- Serves resource requested.
+	-- No (int) means serve a primary resource.  int can be
+	-- 2,3 or 4 -- indicating how deep you want Pagan to
+	-- delve into the url structure.
+	--
+	-- Does not serve private data.
+	--
+	-- *nil or *string
+	------------------------------------------------------
+	nserve = function (int,xpath)
 		------------------------------------------------------
 		-- Check our arguments; setup items and variables. 
 		------------------------------------------------------
