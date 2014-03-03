@@ -73,6 +73,7 @@ pg = dofile("../data/definitions.lua")  -- Data file.
 --
 -- Encapsulating each within a function delays -- processing.
 ------------------------------------------------------
+interpret = require("file.interpret")		-- Wrap loading files.
 is 		= require("extension.tests").is 	-- Useful tests.
 are 		= require("extension.tests").are	-- More useful tests.
 table 	= require("extension.tables")		-- Table extensions. 

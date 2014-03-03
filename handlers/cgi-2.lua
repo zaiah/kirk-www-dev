@@ -125,6 +125,8 @@ end
 ------------------------------------------------------
 -- Load our page and parse for errors. 
 ------------------------------------------------------
+local srv_req = require("file.interpret").file
+--[[
 local function srv_req (file)
 	-- Wrapper to return loadfile()
 	function run()
@@ -152,6 +154,7 @@ local function srv_req (file)
 		die.with(500,{ msg = m, stacktrace = s }) 	
 	end	
 end	
+--]]
 
 ------------------------------------------------------
 -- CGI lua
@@ -163,7 +166,7 @@ local function srv_default()
 		local f = F.exists( pg.default.page .. ".lua" )
 		if f.status 
 		then
-			req = srv_req( f.handle )  -- "../skel/" .. pg.default.page .. ".lua")
+			req = interpret.file( f.handle )  -- "../skel/" .. pg.default.page .. ".lua")
 			response.abort( {200}, req )
 		else
 			die.with(500, { 
@@ -199,7 +202,7 @@ then
 		local f = F.exists( pg.default.page .. ".lua" )
 		if f.status 
 		then
-			req = srv_req( f.handle )  -- "../skel/" .. pg.default.page .. ".lua")
+			req = interpret.file( f.handle )  -- "../skel/" .. pg.default.page .. ".lua")
 			response.abort( {200}, req )
 		else
 			die.with(500, { 
@@ -294,7 +297,7 @@ then
 					------------------------------------------------------
 					if srv.status == true
 					then 
-						req = srv_req(srv.handle)
+						req = interpret.file(srv.handle)
 						response.abort({200}, req)
 					end -- end if srv.status == true
 				end -- end for _,f in ipairs({
@@ -323,7 +326,7 @@ then
 	------------------------------------------------------
 	else
 		srv_default()
-	--	req = srv_req("../skel/" .. pg.default.page .. ".lua")
+	--	req = interpret("../skel/" .. pg.default.page .. ".lua")
 	--	response.send({200}, req.msg() )
 	--	response.send( {200}, req )
 	end

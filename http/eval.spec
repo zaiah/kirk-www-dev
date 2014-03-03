@@ -53,9 +53,28 @@ E.include(n, "home")                -- Kind of like pg.pages, but instead of sta
                                     -- the pages table, use this to do it dynamically.
 
 E.run(f, level)                  	-- Run a function on receipt of a resource.
-
 E.serve(n, [group])             	-- Serve resource at data.url[n] (at group <group> if specified)
-									
+
+
+E.serve({
+	default = "/name" or    -- Set a default resource, for default and for groups.
+		{ [x] = y }
+	fail = {
+		level = 1			-- Return 404 error if a resource isn't found instead of trying to serve automatically...
+		except = { }		-- Do not fail here....
+		group = 			-- Fail with this/these groups
+		message =			-- ?
+		handler = 			-- page
+	},
+	autobind = {			-- Do autobinding from here instead, seems easier to control what you'll get back.
+		[d] = { x, y }
+		[shim] = { z, c },
+	bindee = {      		-- Set up binding groups here.
+		a, b, c, [d] = { x, y, z } },
+	level = n               -- Set a level to serve via table.
+	[ group = [x,y,z] ]     -- Will "listen" for resources attached to group.
+	tolerant = true 		-- If there are errors, then don't die (good for xmlhttp sometimes...)
+})
 									
 xmlhttp and fail seem to be the only things that can be defined ahead of time.
 Before links, serve, include and run can run, the set table MUST be evaluated.

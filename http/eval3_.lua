@@ -7,6 +7,19 @@
 -- By this definition, E.links() does not belong here.
 ------------------------------------------------------
 
+-- Include dependencies.
+local request	  = {}	-- Table to store request model.
+local err		  = {}	-- Table for different errors.
+local priv		  = {}	-- Table for other things.
+
+-- More setup.
+local names = {}			-- Table of names only.
+local evalx = {} 			-- An action besides inclusion is needed.
+
+-- XHR needs a ton to work for some dumb reason...
+local xhrt = {}			-- Table of modules that should only be 
+								-- served partially via XMLHttpRequests.
+
 ------------------------------------------------------
 -- href {}
 --
@@ -22,30 +35,6 @@ local href = {
    subvert 	= { ["_d_"] = {} },		-- Table for subverted stuff.
    group   	= { ["_d_"] = {} },		-- A group name or names.  Default.
    alias   	= { ["_d_"] = {} },     -- Set an alias.
-}
-
-------------------------------------------------------
--- serve
---
--- Defaults for serving.
-------------------------------------------------------
-local serve = {
-	fail = false,
-	autobind = { ["_d_"] = false },
-	default = { ["_d_"] = false },	
-	level = { ["_d_"] = false },	
-	tolerant = false,
-}
-
-------------------------------------------------------
--- fail
-------------------------------------------------------
-local fail = {
-	level = 0,							-- If failing, use this as a guide for when.
-	except = { ["_d_"] = false },	-- Do not fail at receipt of these resources.
-	group = false,						-- ...
-	message = false,					-- Define a different message, w/ no handler. 
-	handler = false					-- Use a totally different handler.
 }
 
 ------------------------------------------------------
@@ -100,7 +89,6 @@ local xmlhttp_settings = {
 ------------------------------------------------------
 local eval = {
 	level 		= 1,              	-- Should automatically be 1. 
-	default     = false,					-- ?
 	resources 	= false,					-- ?
 	done 			= false,			   	-- Change to true when eval_eval() is done. 
 	fs_root 		= "/",					-- Serve relative to here?
@@ -133,8 +121,7 @@ return {
 	-- *nil
 	------------------------------------------------------
 	default = function (term)
-		die.xtype(term, "string", "E.default")
-		eval.default = term
+		request.default = term
 	end,
 
 	------------------------------------------------------
@@ -902,132 +889,52 @@ return {
 	--
 	-- *nil or *string
 	------------------------------------------------------
-	serve = function (t, group_sel)
+	serve = function (int,xpath)
+		local int = int or table.maxn(data.url) 
+		local active_url = data.url[int]
+		local snames = names[request.selection] or names
+
 		------------------------------------------------------
-		-- local srv_req( xblock )
+		-- local find_file (filename)
+		-- 
+		-- Find [filename] by extension.
+		-- *string
+		------------------------------------------------------
+		local function find_file( filename )
+			for _,inc in ipairs({"skel","html"})
+			do
+				local FF = add[inc]( filename )
+				if FF then
+					return FF or "" 
+				end
+			end
+		end
+
+		------------------------------------------------------
+		-- local x_or_not( xblock )
 		--
 		-- Execute or present string returned by [xblock] 
 		-- either by using XMLHttpRequest or a typical return.
 		--
 		-- *string or *nil
 		------------------------------------------------------
-		local function srv_req( req, group )
-			-- Define some starter details.
-			local payload
-			local group = group or "_d_"
-			local req = req or eval.default
-
-			-- Die on no default.
-			if not eval.default then
-				-- If there is a group specified, this will change.
-				die.xerror({
-					fn = "E.serve",
-					msg = "No default payload mapped to resource "..
-					 tostring(int).." at %f."
-				})
-			end
-
-			-- Die if the name isn't a listed resource.
-			if not is.value(req, eval.group[group]) then
-				die.xerror({
-					fn = "E.serve",
-					msg = "No default payload mapped to resource "..
-				 	tostring(int).." at %f."
-				})
-			end
-
-			-- Die if the group doesn't exist.
-			if group and not is.value(group, table.keys(eval.group)) then
-				die.xerror({
-					fn = "E.serve",
-					msg = "No default payload mapped to resource "..
-				 	tostring(int).." at %f."
-				})
-			end
-
-			-- Can set order from E.serve
-			-- Default is to find functions first.
-			if type(eval.execution[group][req]) == 'function' 
-			then
-				-- If there's an error, payload will die here.
-				payload = interpret.funct( eval.execution[group][req] ) or "" 
--- die.quick(tostring(payload))	
-			-- Then skels.
-			-- elseif bla then -- F.exists()
-			-- Then htmls.
-			else
-				-- One of these HAS to work. If not, it's an error.
-				for _,inc in ipairs({"skel","html"})
-				do
-					payload = add[inc]( req )
-					if payload then break end 
-				end
-
-				-- Die if payload's still not present.
-				if not payload
-				then
-					die.xerror({
-						fn = "E.serve",
-						msg = "%f did found neither a skel file " ..
-						 "nor an html file titled "..req.." at this instance."
-					})
-				end
-			end
-
-				return payload 
-			--[[	
-			-- Serve over xmlhttp if asked.
+		local function x_or_not( req, xblock )
+			-- Is this resource autobound to JS?	
 			if type(xhrt) == 'table' 
 			 and is.value(req,xhrt) 
 			then
-			-- interpreter will need to suspend failure for this to work.
-			--	response.abort({200}, xblock)
+				response.abort({200}, xblock)
 
 			-- If not serve like normal.
 			else
-				return payload 
+				return xblock
 			end
-			--]]
-		end
-
-
-		------------------------------------------------------
-		-- Define the rest.  Takes alternate syntax.
-		------------------------------------------------------
-		local int = int or table.maxn(data.url) 
-		local active_url = data.url[int]
-
-		-- Serve a default request.
-		if not t 
-		then
-			return srv_req()
-
-		-- Serve per resource. 
-		elseif type(t) == 'number' and type(group_sel) == 'string'
-		then
-			return srv_req(active_url, group_sel)
-
-
-		-- Evaluate your table and serve something more complex.
-		elseif type(t) == 'table'
-		then
-			------------------------------------------------------
-			-- I do need to evaluate some stuff.
-			------------------------------------------------------
-	
-		-- Catch all others.	
-		else
-			die.xerror({
-				fn = "E.serve",
-				msg = "Nothing good can come of this %f."
-			})
 		end
 
 		------------------------------------------------------
 		-- Check groupnames supplied in xpath, dying if 
 		-- they haven't been used before.
 		------------------------------------------------------
-		--[[
 		local groupnames = {}
 		if xpath and type(xpath) == 'string' then
 			table.insert(groupnames, xpath)
@@ -1051,31 +958,174 @@ return {
 			die.xerror({ fn = "E.serve", 
 				msg =  "Incorrect argument 2 at %f." })
 		end
-		--]]
 
-		--[[
 		------------------------------------------------------
 		-- Evaluate whatever code is tied to the function.
 		------------------------------------------------------
-		if is.value(active_url, eval.group[yy])
-		 and is.key(active_url, eval.execution[yy])
+		for kk,yy in ipairs(groupnames)
+		do
+			if is.value(active_url, eval.group[yy])
+			 and is.key(active_url, eval.execution[yy])
+			then
+				return x_or_not( active_url, eval.execution[yy][active_url]() ) or nil
+
+			------------------------------------------------------
+			-- Do a file include.
+			------------------------------------------------------
+			elseif is.value(active_url, eval.group[yy])
+			then
+				if request.xpath and type(request.xpath) == 'string' then
+				--	return find_file( string.format("%s/%s",request.xpath, active_url) )
+					return x_or_not( request.xpath, 
+						find_file( string.format("%s/%s", request.xpath, active_url) )) or nil
+				else
+				--	return find_file( active_url ) end
+					return x_or_not( active_url, find_file( active_url )) or nil 
+				end
+			end
+		end
+	end,
+
+	------------------------------------------------------
+	-- .serve(int,xpath)
+	--
+	-- Serves resource requested.
+	-- No (int) means serve a primary resource.  int can be
+	-- 2,3 or 4 -- indicating how deep you want Pagan to
+	-- delve into the url structure.
+	--
+	-- Does not serve private data.
+	--
+	-- *nil or *string
+	------------------------------------------------------
+	nserve = function (int,xpath)
+		------------------------------------------------------
+		-- Check our arguments; setup items and variables. 
+		------------------------------------------------------
+		if type(xpath) == 'table'
+		 and not xpath[1]
 		then
-			return x_or_not( active_url, eval.execution[yy][active_url]() ) or "yourmom" 
+			request.xpath = xpath[2] or ""
+
+		elseif type(xpath) == 'table'
+		then
+			request.selection = "__" .. xpath[1] .. "__"
+			request.xpath = xpath[2] or ""
+
+		elseif type(xpath) == 'string'
+		then 
+			request.selection = "__" .. xpath .. "__"
+		end
+
+		------------------------------------------------------
+		-- snames = Final table of resources to choose from.
+		-- sevalx = Table of functions. 
+		------------------------------------------------------
+		local int = int or table.maxn(data.url)
+		local dd = data.url[int]
+		local snames = names[request.selection] or names
+		local sevalx = evalx[request.selection] or evalx
+
+		------------------------------------------------------
+		-- local find_file (filename)
+		-- 
+		-- Find [filename] by extension.
+		-- *string
+		------------------------------------------------------
+		local function find_file( filename )
+			for _,inc in ipairs({"skel","html"})
+			do
+				local FF = add[inc]( filename )
+				if FF then
+					return FF or "" 
+				end
+			end
+		end
+
+		------------------------------------------------------
+		-- local x_or_not( xblock )
+		--
+		-- Execute or present string returned by [xblock] 
+		-- either by using XMLHttpRequest or a typical return.
+		--
+		-- *string or *nil
+		------------------------------------------------------
+		local function x_or_not( req, xblock )
+			-- Is this resource autobound to JS?	
+			if type(xhrt) == 'table' 
+			 and is.value(req,xhrt) 
+			then
+				response.abort({200}, xblock)
+
+			-- If not serve like normal.
+			else
+				return xblock
+			end
+		end
+
+		------------------------------------------------------
+		-- Evaluate whatever code is tied to the function.
+		------------------------------------------------------
+		if is.value(dd, snames)
+		 and is.key(dd, sevalx)
+		then
+			--return sevalx[dd]() or ""
+			return x_or_not( dd, sevalx[dd]() ) or nil
 
 		------------------------------------------------------
 		-- Do a file include.
 		------------------------------------------------------
-		elseif is.value(active_url, eval.group[yy])
+		elseif is.value(dd, snames)
 		then
 			if request.xpath and type(request.xpath) == 'string' then
-			--	return find_file( string.format("%s/%s",request.xpath, active_url) )
+			--	return find_file( string.format("%s/%s",request.xpath, dd) )
 				return x_or_not( request.xpath, 
-					find_file( string.format("%s/%s", request.xpath, active_url) )) or nil
+					find_file( string.format("%s/%s", request.xpath, dd) )) or nil
 			else
-			--	return find_file( active_url ) end
-				return x_or_not( active_url, find_file( active_url )) or nil 
+			--	return find_file( dd ) end
+				return x_or_not( dd, find_file( dd )) or nil 
 			end
+			
+		------------------------------------------------------
+		-- If nothing is satisfied, let E.serve handle it.
+		-- 
+		-- The XHR handling should happen here for fallback 
+		-- support.
+		------------------------------------------------------
+		else
+			if request.err
+			then
+				return ({
+					string = function ()
+						return request.err
+					end,
+					["function"] = function ()
+						return request.err()
+					end,
+				})[type(request.err)]()
+
+			else
+				return ({
+					string = function ()
+						if is.value(request.default, snames)
+						 and is.key(request.default, sevalx)
+						then 
+							return sevalx[request.default]()
+	
+						elseif is.value(request.default, snames) 
+						then 
+							return find_file ( request.default ) 
+						end
+					end,
+					["function"] = function ()
+						return request.default()
+					end,
+					["nil"] = function ()
+						response.abort({500},[[No default request 
+							specified for method .serve()]])
+					end,
+				})[type(request.default)]()
+			end	-- if.request.err
 		end
-		--]]
 	end,
 }
