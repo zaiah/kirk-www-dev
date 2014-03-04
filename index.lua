@@ -3,136 +3,49 @@
 -- index.lua
 --
 -- Main handler for CGI/FCGI scripts.
---
--- More configuration is going to move:
--- We're also going to do this loading via
--- coroutines and cut whatever cycles possible.
---
--- The unfortunate side effect is that pg may
--- end up EXTREMELY long...
---
--- Also standardize error messages:
--- 
-------------------------------------------------------
-
-------------------------------------------------------
--- Global configuration. 
--- Will be moving to data/definitions with time.
---
--- Dates
---  Sun, 06 Nov 1994 08:49:37 GMT  ; RFC 822, updated by RFC 1123
---  Sunday, 06-Nov-94 08:49:37 GMT ; RFC 850, obsoleted by RFC 1036
---  Sun Nov  6 08:49:37 1994       ; ANSI C's asctime() format
-------------------------------------------------------
+------------------------------------------------------=
 VERSION = "Pagan 1.1"
 LOCALE  = "EN:us"
-DATE	  = os.date('*t',os.time())
+DATE	= os.date('*t',os.time())
 NOW     = function () return os.date('*t', os.time()) end
-TIME 	  = os.time()
--- L		  = require("i18n.locale")
--- print( env )
-date	  = {
-	["asctime"] = function ()
-		return string.format('%s %s %d %d:%d:%d',
-			string.sub(L.days[DATE.wday],1,3), 
-			string.sub(L.months[DATE.month],1,3), 
-			DATE.day, 
-			DATE.hour, 
-			DATE.min,
-			DATE.sec)
-	end
-}
+RECVD	= os.time()
+TIME 	= os.time()
+-- L	= require("i18n.locale")
+pg = dofile("../data/definitions.lua") 
 
 ------------------------------------------------------
--- The absolute thinnest stack possible doesn't need
--- any of this.
---
--- You only need a response library:
---		capable of processing headers
---		and parsing a response
-------------------------------------------------------
-
-------------------------------------------------------
--- Get the configuration and include optional debug.
-------------------------------------------------------
-pg = dofile("../data/definitions.lua")  -- Data file.
-
-------------------------------------------------------
--- is = More robust value testing.
--- table = More robust table functions.
--- html = HTML encapsulation and body population.
---
--- D = Work with databases. 
--- E = Do basic routing.
--- F = Work with files.
--- N = Encode strings and URLs.
--- C = Work quickly with content.
---
--- Next question is smarter inclusion.
--- (This is going to take forever on bigger sites.)
---
--- Encapsulating each within a function delays -- processing.
+-- Load functionality.  
 ------------------------------------------------------
 interpret = require("file.interpret")		-- Wrap loading files.
-is 		= require("extension.tests").is 	-- Useful tests.
-are 		= require("extension.tests").are	-- More useful tests.
-table 	= require("extension.tables")		-- Table extensions. 
-string 	= require("extension.strings") 	-- String extensions. 
-date		= require("extension.date")		-- Dates
-arg		= require("extension.arg")			-- Repetitive argument processing.
-uuid		= require("extension.uuid")		-- Ridiculous error handling.
--- co		= require("extension.coroutine") -- Send functions through coroutines.
+is        = require("extension.tests").is 	-- Useful tests.
+are       = require("extension.tests").are	-- More useful tests.
+table     = require("extension.tables")		-- Table extensions. 
+string    = require("extension.strings") 	-- String extensions. 
+date      = require("extension.date")		-- Dates
+uuid      = require("extension.uuid")		-- Random ID Generation
+shuffle   = require("extension.shuffler")	-- Shuffle keys from a table.
+arg       = require("extension.arg")		-- Repetitive argument processing.
+-- co     = require("extension.coroutine")  -- Send functions through coroutines.
 
-html  	= require("http.html").html		-- HTML encapsulation.
-cookie  	= require("http.cookie")			-- Cookies
-scodes	= require("http.status")			-- Common status codes. 
-_			= html									-- (syntactic sugar)
-htags		= require("http.html").htags		-- List of available HTML tags
+response  = require("http.response")        -- Response library
+-- request = require("http.request")        -- Request library.
+html      = require("http.html").html		-- HTML encapsulation.
+htags     = require("http.html").htags		-- List of available HTML tags
+_         = html							-- Will have to replace b/c this overloads.
+cookie    = require("http.cookie")			-- Cookies
+scodes    = require("http.status")			-- Common status codes.
+E         = require("http.eval3")			-- Routing and resources.
 
-D 			= require("ds.db")					-- ORM interface
-E 			= require("http.eval2")				-- Routing and resources.
-cookie 	= require("http.cookie")			-- Cookie handling.
-F 			= require("file.file") 				-- File interaction
-add 		= require("file.add")				-- Preload common files.
--- S 		= require("http.sockets")			-- Send data over sockets.
-C 			= require("ds.content")				-- Get something from a database.
-as 		= require("ds.serialization")		-- Serialization formats.
-render 	= require("template/render")		-- Template rendering.
-die		= require("error")					-- Ridiculous error handling.
-shuffle  = require("extension.shuffler")	-- Shuffle keys from a table.
- 
-response = require("http.response")
-content_types = require("http.content-types")
--- xmlhttp  = require("http.xmlhttp")
-
-------------------------------------------------------
--- Temporary fix for evaluation of pg.
---
--- Every item evenutally will be controlled by 
--- directives in pg.  With the exception of 'console',
--- the majority of this code is deprecated and will
--- be removed in the coming weeks.
-------------------------------------------------------
-if pg.pgdebug 
-then
-	console	= require("debugger")
-end
-
--- old logging module
-LOG 		= require("ds.log")					-- Debugging if we asked for it.
-if not pg.pgdebug 
-then
-	for k,_ in pairs(LOG) 
-	do
-		LOG[k] = function () return nil end 
-	end 
-end
-
--- old error handler  
-R 	= function (fname) 
-	return add.err(fname) 
-end
-
+D         = require("ds.db")				-- ORM interface
+F         = require("file.file") 			-- File interaction
+add       = require("file.add")				-- Preload common files.
+-- S      = require("http.sockets")			-- Send data over sockets.
+C         = require("ds.content")			-- Get something from a database.
+as        = require("ds.serialization")		-- Serialization formats.
+render    = require("template/render")		-- Template rendering.
+die       = require("error")				-- Error handling.
+ctypes    = require("http.content-types")   -- Possible Content-Types
+console   = require("debugger")             -- Console for debugging.
 
 ------------------------------------------------------
 -- There must be something else that will help you

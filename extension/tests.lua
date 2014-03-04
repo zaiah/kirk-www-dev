@@ -346,7 +346,7 @@ local are = {
 
 			-- t isn't a table so don't bother.
 			else
-				LOG.file(t .. " is not a table in function are.members_of_type().")
+				-- die.xerror()
 			end
 			return type_correct
 		end

@@ -30,7 +30,7 @@ local href = {
 -- Defaults for serving.
 ------------------------------------------------------
 local serve = {
-	fail = false,
+	fail = { ["_d_"] = false },
 	autobind = { ["_d_"] = false },
 	default = { ["_d_"] = false },	
 	level = { ["_d_"] = false },	
@@ -41,11 +41,10 @@ local serve = {
 -- fail
 ------------------------------------------------------
 local fail = {
-	level = 0,							-- If failing, use this as a guide for when.
-	except = { ["_d_"] = false },	-- Do not fail at receipt of these resources.
-	group = false,						-- ...
-	message = false,					-- Define a different message, w/ no handler. 
-	handler = false					-- Use a totally different handler.
+	level = {},							-- If failing, use this as a guide for when.
+	except = { ["_d_"] = false },		-- Do not fail at receipt of these resources.
+	message = { ["_d_"] = false },		-- Define a different message, w/ no handler. 
+	handler = { ["_d_"] = false	},		-- Use a totally different handler.
 }
 
 ------------------------------------------------------
@@ -57,7 +56,9 @@ local xmlhttp = {
 	-- Binding 
 	autobind = { ["_d_"] = false },	-- Define each item that will dump resources at a location.
 	bind 		= { ["_d_"] = false },	-- Bind resources to events. 
-
+	bind_points = {},  -- Empty table for items to bind to.
+	bind_resources = {}, -- Empty table for binding resources.
+	
 	-- Animation
 	animate 	= { ["_d_"] = false },	-- Use basic animation when doing stuff.
 	hide 		= { ["_d_"] = false },
@@ -100,7 +101,7 @@ local xmlhttp_settings = {
 ------------------------------------------------------
 local eval = {
 	level 		= 1,              	-- Should automatically be 1. 
-	default     = false,					-- ?
+	default     = { ["_d_"] = false },		-- ?
 	resources 	= false,					-- ?
 	done 			= false,			   	-- Change to true when eval_eval() is done. 
 	fs_root 		= "/",					-- Serve relative to here?
@@ -108,13 +109,14 @@ local eval = {
 	group 		= {["_d_"] = {} },	-- Set a place for resources.
 	href 			= {["_d_"] = {} },	-- Set a place for resources.
 	order 		= {"skel","html"},	-- Default order for finding files.
-	xmlhttp 		= {["_d_"] = {}}  	-- Which groups get XMLHttp requests?
+	xmlhttp 		= {["_d_"] = {}},  	-- Which groups get XMLHttp requests?
+	xhr = { ["_d_"] = {} }
 }
 
 ------------------------------------------------------
 -- js_dump str
 --
--- A large string that will hold the contents of 
+-- A table that will hold the contents of 
 -- a script used to generate XMLHttp and basic 
 -- Javascript scaffolding. 
 ------------------------------------------------------
@@ -133,42 +135,30 @@ return {
 	-- *nil
 	------------------------------------------------------
 	default = function (term)
-		die.xtype(term, "string", "E.default")
-		eval.default = term
-	end,
-
-	------------------------------------------------------
-	-- .run( level, f )
-	--
-	-- Run a function according to a specific resource.
-	--
-	-- *string, *table, *number or *nil
-	------------------------------------------------------
-	nrun = function (level, f)
-	-- run = function (level, f, map) -- Need a way to choose resource.
-		local run_res 
-		if type(f) == 'function'
-		then
-			if type(map) == 'string'
-			then
-				request.selection = "__" .. map .. "__"
+		-- Die if term is not a string.
+		die.xtype(term, {"string", "table"}, "E.default")
+		
+		-- Set a default resource
+		if type(term) == 'string' then
+			eval.default._d_ = term
+		elseif type(term) == 'table' then
+			if is.ni(term) then
+				die.xerror({
+					fn = "E.default",
+					msg = "Received numerically indexed table at %f. "  
+					 .. "Expected alphabetically indexed table."
+				})
 			end
-			run_res = table.copy( names[request.selection] or names ) 
-
-			------------------------------------------------------
-			-- Get the value only if it exists.
-			------------------------------------------------------
-			if data.url[level]
-			 and is.value(data.url[level],run_res)
-			then
-				return f(data.url[level])
-			elseif request.default
-			then 
-				return f(request.default)
-			else
-				return ""
+			
+			-- die.xntable(term, "E.default") | die.xatable(term, "E.default")
+			for xx,yy in pairs(term) do
+				if type(xx) == "number" then
+					eval.default._d_ = yy
+				else
+					eval.default[xx] = yy
+				end
 			end
-		end	
+		end
 	end,
 
 	------------------------------------------------------
@@ -178,27 +168,16 @@ return {
 	------------------------------------------------------
 	run = function (level, f)
 		-- Die if f is not a function.
-		die.xtype(f, "function")
+		die.xtype(f, "function", "E.run")
 
-		-- Run some stuff.	
-		if type(map) == 'string'
-		then
-			request.selection = "__" .. map .. "__"
-		end
-	
-		-- ...			
-		local run_res = table.copy( names[request.selection] or names ) 
-
-		------------------------------------------------------
-		-- Get the value only if it exists.
-		------------------------------------------------------
+		-- Might need some function safety, in case it just
+		-- totally fails...
 		if data.url[level]
-		 and is.value(data.url[level],run_res)
 		then
 			return f(data.url[level])
-		elseif request.default
+		elseif eval.default
 		then 
-			return f(request.default)
+			return f(eval.default._d_)
 		else
 			return ""
 		end
@@ -208,6 +187,7 @@ return {
 	-- .set(t)
 	--
 	-- Set the E module.
+	-- *nil
 	------------------------------------------------------
 	set = function (t)
 		-- Die if t isn't a table.
@@ -223,7 +203,7 @@ return {
 				if type(v) == 'function' or type(v) == 'string'
 				then
 					table.insert(eval.group._d_, k)	-- Add the name only to eval.group
-					eval.execution._d_[k] = v			-- Reference function v with k
+					eval.execution._d_[k] = v		-- Reference function v with k
 
 				-- Evaluate the differences in tables.
 				elseif type(v) == 'table'
@@ -329,7 +309,7 @@ return {
 	-- <pre>
 	-- E.links({
 	--    as      = [table, string] 	-- Output link list as table or string.
-	--    root    = [string]        	-- Creates href relative to [root].
+	--    url_root    = [string]        	-- Creates href relative to [root].
 	--    class   = [string]       	-- A class name for each.
 	--    id      = [bool]          	-- Use the resource name as an id.
 	--    string  = [string]        	-- Use this string as the link dump.
@@ -482,15 +462,15 @@ return {
 				},
 			}
 			
-         ------------------------------------------------------
+			------------------------------------------------------
 			-- Get the keys from [t]
-         ------------------------------------------------------
+			------------------------------------------------------
 			t = table.retrieve(table.keys(href), t)
 
-         ------------------------------------------------------
+			------------------------------------------------------
 			-- Check if the group exists, and set something for
 			-- our final link output loop.
-         ------------------------------------------------------
+			------------------------------------------------------
 			local groupnames
 			if t and t.group
 			then
@@ -563,8 +543,7 @@ return {
 				"class", "url_root", "id","string" -- ,"subvert","alias"	
 			})
 			do
-				if t[v]
-				then
+				if t[v] then
 					shuffle(validation, t[v], v, "E.links")
 				end
 			end
@@ -607,9 +586,10 @@ return {
 				end -- if t and t.string and t.string[v]
 			end -- for __,v in ipairs(group)
 
-			-- My processing is done.
-			href = defaults		-- Reset to defaults.
---			  response.abort({200}, table.as_string(defaults["class"]))
+			-- Reset to defaults, letting another link chain do work if specified.
+			href = defaults
+			
+			-- Finally output everything new.
 			local as = t.as or href.as
 			if as == 'string' 
 			then 
@@ -634,9 +614,35 @@ return {
 	------------------------------------------------------
 	include = function (n, name)
 	end,
+	
+	------------------------------------------------------
+	-- .js()
+	--
+	-- Returns a table of Javascript resource names 
+	-- while we work out the logistics of including xhr.
+	-- *table
+	------------------------------------------------------
+	js = function ()
+	return {
+	   "/js/kirk-js/debug",
+	   "/js/kirk-js/xmlhttp",
+	   "/js/kirk-js/send_test_req",
+	   "/js/kirk-js/variables",
+	   "/js/kirk-js/autobind",
+	-- "/js/kirk-js/get",
+	   "/js/kirk-js/json",
+	-- "/js/kirk-js/kirk",
+	   "/js/kirk-js/os",
+	   "/js/kirk-js/send_get_req",
+	   "/js/kirk-js/send_multipart_post_req",
+	   "/js/kirk-js/send_www-url-form-enc-post_req",
+	-- "/js/kirk-js/testjs",
+	   "/js/kirk-js/init",
+	}
+	end,
 
 	------------------------------------------------------
-	-- .xmlhttp()
+	-- .xhr()
 	--
 	-- Bind resources to XMLHttpRequests. 
 	-- 
@@ -645,9 +651,6 @@ return {
 	-- <pre>
 	-- E.xmlhttp ({
 	-- 	autobind = {	-- Choose to bind resources to ID's or classes...
-	-- 		[x] = [string or table],
-	-- 		[y] = [string or table],
-	-- 	},
 	-- 	bounds   = {	-- Define "aliases" for elements to bind to.
 	-- 		[x] = ".fool", -- The class .fool can be referenced by [x] now.
 	-- 		[y] = "#mega", -- The ID mega can be referenced by [y] now.
@@ -657,10 +660,6 @@ return {
 	-- 		[y] = 300 or { start = 300, end = 300}
 	-- 	},
 	--  [show,hide] = [number or table],  -- Set show and hide speed 
-	--  [show,hide] = 300 -- or           -- for elements.
-	--  [show,hide] = { 
-	-- 		[x] = 300
-	-- 	},
 	-- 	post 	= [string or table]
 	-- 	get = [string or table]
 	-- })
@@ -668,13 +667,11 @@ return {
 	--
 	-- *nil
 	------------------------------------------------------
-	xmlhttp = function (t)
+	xhr = function (t)
+		local fname = "E.xhr"
+		
 		if t
 		then
-			------------------------------------------------------
-			-- Pull each of the parameters out. 
-			------------------------------------------------------
-			
 			------------------------------------------------------
 			-- Start the Javascript dump.
 			------------------------------------------------------
@@ -697,7 +694,7 @@ return {
 					if type(v) ~= "string"
 					then
 						die.xerror({
-							fn = "xmlhttp",
+							fn = fname,
 							msg = "local function <i>arrayify()</i> expects strings"
 							 .. " within it's first argument in %f"
 						})
@@ -707,87 +704,38 @@ return {
 
 				return table.concat( {rsrc, table.concat(js,","), "];"} )
 			end
-
+			
 			------------------------------------------------------
 			-- Set up all the datatypes.
 			------------------------------------------------------
-			local datatypes = {
+			local validation = {
 				autobind = {
-					"atable", 
-					{ "string", "table" }, 
-					"string" },
+					datatypes = { "atable", "ntable", "string" },
+					_atable = function (x)
+						for xx,yy in pairs(x) do
+							
+						end
+					end,
+					_string  = function (x)
+					end,
+					_ntable = function (x)
+					end,
+				},
 				animate = {
-					{ "atable", "boolean" }, 
-					{ "ntable", "string", "boolean" }, 
-					"string" },
+				},
 				hide = {
-					{ "atable", "number" }, 
-					{ "atable", "number" }, 
-					"number" },
+				},
 				show = {
-					{ "atable", "number" }, 
-					{ "atable", "number" }, 
-					"number" },
+				},
 			}
-
-			------------------------------------------------------
-			-- function () end
-			------------------------------------------------------
-			local functions = {
-				autobind = function (x) end,
-				animate = function (x) end,
-				hide = function (x) end,
-				show = function (x) end,
-			}
-
-			------------------------------------------------------
-			-- check_types(e, a, s)
-			--
-			-- Check the values at every index in e, dying if
-			-- the value is not matching, and returning if it's 
-			-- right. 
-			--
-			-- e is the table or value we want to analyze.
-			-- a is the type to validate.
-			-- s is a possible value to assign e to.
-			--
-			-- *any type but nil
-			------------------------------------------------------
-			--[[
-			local function check_types(e, a, s)
-				-- If a says atable, then move through each index.
-				-- Test if it's
-				if s then s = s + 1 end
-				if a == 'atable' then
-					for n,x in pairs(e) do
-					-- Error out if a number is encountered.
-						if type(n) == 'number' then
-							die.xerror({
-								fn = "xmlhttp", 
-								msg = "Expected alphabetically indexed table at %f."
-							})	
-						end
-					end
-				elseif a == 'ntable' then
-					for n,x in pairs(e) do
-						-- Error out if a number is encountered.
-						if type(n) == 'string' then
-							die.xerror({
-								fn = "xmlhttp", 
-								msg = "Expected numerically indexed table at %f."
-							})	
-						end
-					end
-				else
-				end	
-			end
-			--]]
 
 			-- Clone your defaults.
+			--[[
 			local original = {
 				xmlhttp = table.clone(xmlhttp),
 				settings = table.clone(xmlhttp_settings),
 			}
+			--]]
 
 			-- Extract settings.
 			local settings = table.retrieve(table.keys(xmlhttp_settings), t)
@@ -797,10 +745,10 @@ return {
 				for k,v in pairs(settings) do
 					if type(v) ~= type(xmlhttp_settings[k])
 					then
-					die.xerror({ 
-						fn = "E.xmlhttp", tn = type(xmlhttp_settings[k]),
-						msg = "Expected type %t at index ["..k.."] in %f." 
-					})
+						die.xerror({ 
+							fn = fname, tn = type(xmlhttp_settings[k]),
+							msg = "Expected type %t at index ["..k.."] in %f." 
+						})
 					end
 				end	
 			end	
@@ -809,49 +757,10 @@ return {
 			t = table.retrieve(table.keys(xmlhttp), t)
 
 			-- Cycle through each.
-			for n,k in pairs(t)
+			for n,v in pairs(t)
 			do
-				-- Autobind id's / classes from links to places on page.
-				if t.autobind 
-				then 
-					-- Type check the autobind stuff.
-					if type(t.autobind) ~= "string" and type(t.autobind) ~= "table"
-					then
-						die.xerror({
-							fn = "xmlhttp", on = {"string", "table"}, 
-							msg = "Expected %o at index ["..n.."] at %f."})
-
-						if is.ni(t.autobind)
-						then
-							die.xerror({fn = "xmlhttp", 
-								msg = "Expected alpha table at index ["..n.."] at %f."})
-						end
-					end
-
-					-- If it's a table, move through and:
-					-- 1. Add key to __LOCATION__ 
-					-- 2a. If value is a key-value table, then assign elements from
-					-- group named by key into table
-					-- 2b. 
-					if type(t.autobind) == 'table'
-					then
-						-- Iterate through each group and set the things.
-						for kk,vv in pairs(t.autobind)
-						do
-							if type(vv) == 'string'
-							then
-								table.insert( xmlhttp.autobind, vv )
-							elseif type(vv) == 'table'
-							then
-							end
-						end
-
-					-- If it's a string, automatically open payloads from
-					-- everything in the same field.
-					elseif type(t.autobind) == 'string'
-					then
-						die.quick( table.dump(eval.group) )	
-					end
+				if t[v] then
+					shuffle(validation, t[v], v, fname)
 				end
 			end
 
@@ -900,6 +809,14 @@ return {
 	--
 	-- Does not serve private data.
 	--
+	-- level
+	-- default ?
+	-- fail ?
+	-- fs_root
+	-- order
+	-- autobind? - forces XMLHttp requests...?
+	-- group
+	--
 	-- *nil or *string
 	------------------------------------------------------
 	serve = function (t, group_sel)
@@ -911,14 +828,15 @@ return {
 		--
 		-- *string or *nil
 		------------------------------------------------------
-		local function srv_req( req, group )
+		local function srv_req( req, group_sel )
+			-- die.quick(tostring(req))
 			-- Define some starter details.
 			local payload
-			local group = group or "_d_"
-			local req = req or eval.default
+			local group = group_sel or "_d_"
+			local req = req or eval.default[group]
 
 			-- Die on no default.
-			if not eval.default then
+			if not eval.default[group] then
 				-- If there is a group specified, this will change.
 				die.xerror({
 					fn = "E.serve",
@@ -927,22 +845,24 @@ return {
 				})
 			end
 
-			-- Die if the name isn't a listed resource.
-			if not is.value(req, eval.group[group]) then
+			-- Die if the group doesn't exist.
+			if group_sel and not is.value(group_sel, table.keys(eval.group)) then
 				die.xerror({
 					fn = "E.serve",
 					msg = "No default payload mapped to resource "..
 				 	tostring(int).." at %f."
 				})
 			end
-
-			-- Die if the group doesn't exist.
-			if group and not is.value(group, table.keys(eval.group)) then
-				die.xerror({
-					fn = "E.serve",
-					msg = "No default payload mapped to resource "..
-				 	tostring(int).." at %f."
-				})
+			
+			-- 404 or proceed if the name isn't a listed resource.
+			if not is.value(req, eval.group[group]) then
+				if fail.level[int] then
+					-- Throw auto 404
+					if fail.group[group] and not is.value(req, fail.except[group]) then
+						die.with(404, { nsg = "Cannot find page: " .. req .. "."})
+					end
+				else
+				end
 			end
 
 			-- Can set order from E.serve
@@ -951,7 +871,6 @@ return {
 			then
 				-- If there's an error, payload will die here.
 				payload = interpret.funct( eval.execution[group][req] ) or "" 
--- die.quick(tostring(payload))	
 			-- Then skels.
 			-- elseif bla then -- F.exists()
 			-- Then htmls.
@@ -973,40 +892,29 @@ return {
 					})
 				end
 			end
-
-				return payload 
-			--[[	
+ 
 			-- Serve over xmlhttp if asked.
-			if type(xhrt) == 'table' 
-			 and is.value(req,xhrt) 
+			if eval.xhr[group] and is.value(req, eval.xhr[group]) 
 			then
-			-- interpreter will need to suspend failure for this to work.
-			--	response.abort({200}, xblock)
+				response.abort({200}, payload)
 
 			-- If not serve like normal.
 			else
 				return payload 
 			end
-			--]]
 		end
-
 
 		------------------------------------------------------
 		-- Define the rest.  Takes alternate syntax.
 		------------------------------------------------------
-		local int = int or table.maxn(data.url) 
-		local active_url = data.url[int]
-
-		-- Serve a default request.
-		if not t 
-		then
-			return srv_req()
+		local int
+		local active_url 
+		local group = group_sel or "_d_"
 
 		-- Serve per resource. 
-		elseif type(t) == 'number' and type(group_sel) == 'string'
+		if type(t) == 'number' -- and type(group_sel) == 'string'
 		then
-			return srv_req(active_url, group_sel)
-
+			active_url = data.url[t] or nil
 
 		-- Evaluate your table and serve something more complex.
 		elseif type(t) == 'table'
@@ -1014,68 +922,45 @@ return {
 			------------------------------------------------------
 			-- I do need to evaluate some stuff.
 			------------------------------------------------------
+			local validation = {	
+				level = {
+					datatypes = "number",
+					_number = function (x) t.level = x end,
+				},
+				default = {
+					datatypes = "number",
+					_number = function () end,
+				},
+				fail = {
+					datatypes = { "boolean", "atable" },
+					_boolean = function () end,
+					_atable = function () end,
+				},
+				fs_root = {
+					datatypes = { "string", "atable" },
+					_number = function () end,
+				},
+				order = {
+					datatypes = { "ntable" }, 
+					_number = function () end,
+				},
+			}
 	
+			------------------------------------------------------
+			-- Start returning that cray shit.
+			------------------------------------------------------
+			int = t.level -- or table.maxn(data.url)
+			active_url = data.url[int] or nil
 		-- Catch all others.	
 		else
 			die.xerror({
 				fn = "E.serve",
-				msg = "Nothing good can come of this %f."
+				tn = type(t),
+				on = { "number", "table" },
+				msg = "Received %t at %f.  Expected either %o."
 			})
 		end
-
-		------------------------------------------------------
-		-- Check groupnames supplied in xpath, dying if 
-		-- they haven't been used before.
-		------------------------------------------------------
-		--[[
-		local groupnames = {}
-		if xpath and type(xpath) == 'string' then
-			table.insert(groupnames, xpath)
-		elseif xpath and type(xpath) == 'table' then
-			if not is.ni(xpath) then 
-				die.xerror({ fn = "E.serve", msg = "Not correct type at %f" })
-			end
-			for xx,vv in ipairs(xpath) do
-				if is.value(xpath, table.keys(eval.group)) then
-						table.insert(groupnames, vv)
-				else 
-					die.xerror({ fn = "E.serve", 
-						msg =  "No group named "..vv.." at %f" })
-				end
-			end
-		elseif not xpath
-		then
-			table.insert(groupnames, "_d_")
-		else
-			-- incorrect type or argument has been thrown
-			die.xerror({ fn = "E.serve", 
-				msg =  "Incorrect argument 2 at %f." })
-		end
-		--]]
-
-		--[[
-		------------------------------------------------------
-		-- Evaluate whatever code is tied to the function.
-		------------------------------------------------------
-		if is.value(active_url, eval.group[yy])
-		 and is.key(active_url, eval.execution[yy])
-		then
-			return x_or_not( active_url, eval.execution[yy][active_url]() ) or "yourmom" 
-
-		------------------------------------------------------
-		-- Do a file include.
-		------------------------------------------------------
-		elseif is.value(active_url, eval.group[yy])
-		then
-			if request.xpath and type(request.xpath) == 'string' then
-			--	return find_file( string.format("%s/%s",request.xpath, active_url) )
-				return x_or_not( request.xpath, 
-					find_file( string.format("%s/%s", request.xpath, active_url) )) or nil
-			else
-			--	return find_file( active_url ) end
-				return x_or_not( active_url, find_file( active_url )) or nil 
-			end
-		end
-		--]]
+		
+		return srv_req(active_url, group_sel or nil)
 	end,
 }

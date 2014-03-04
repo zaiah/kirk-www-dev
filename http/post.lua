@@ -58,7 +58,6 @@ return function(CGI,CLI)
 				string.find(CGI.CONTENT_TYPE,
 					"multipart/form-data; boundary=",1,true)})[2] + 1)
 
---LOG.file(string.find(CGI.CONTENT_TYPE,"multipart/form-data; boundary="))
 
 			-- You can easily have two or more boundaries 
 			-- depending on what's in the page.
@@ -75,7 +74,6 @@ return function(CGI,CLI)
 			-- Get the content disposition markers. 
 			for x=1,table.maxn(START),1 
 			do
-				-- -- LOG.prefix("POST Vars ",true)
 				-- Define content and boundaries for this iteration. 
 				local BLOCK = {
 					["CONTENT"] = string.sub(PST,
@@ -104,7 +102,6 @@ return function(CGI,CLI)
 						})[2]
 
 						-- Catch name field.
-						-- -- LOG.file(string.match(cxc,'name="([%w%p%d]+)"'))
 						ct[string.match(cxc,'name="([%w%p%d]+)"')] = {
 							["filename"] = string.match(cxc,
 								'filename="([%w%p%d ]+)"\r'),
@@ -119,7 +116,6 @@ return function(CGI,CLI)
 						-- According to spec, get 
 						-- spaces
 						-- ., _, -,:,digits
-						-- -- LOG.file(string.match(cxc, 'name="([%w%d,_,%-,:,%.]+)"'))
 
 						ct[string.match(cxc, 'name="([%w%d,_,%-,:,%.]+)"')] = string.sub(
 							string.gsub(

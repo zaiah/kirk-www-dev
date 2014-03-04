@@ -360,8 +360,6 @@ local connection = {
 		for tname, init_string in pairs(t)
 		do
 			if not table.index( D.gettb()["tables"], tname) then
-				LOG.file("Table " .. tname .. "does not exist.")
-				LOG.file("Creating table: " .. tname)
 				D.connect(tname).table.create(init_string)
 			end	
 		end

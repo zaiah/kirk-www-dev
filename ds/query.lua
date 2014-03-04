@@ -387,14 +387,12 @@ local function exec(user_query,clean)
 			if not dbexec
 			then
 				-- This needs a much better error report.
-				-- LOG.file(user_query)
 				if user_query then user_query = tostring(user_query) end
 				response.abort({500},
 					"There was an error parsing user query: " .. user_query ..
 					"There has been an error in the database.")
 				return
 			else
-				-- LOG.file(user_query)
 				return dbexec end
 		end,
 		["standard"] = function ()
@@ -711,7 +709,6 @@ local dbRecordManipulators = {
 				----------------------------------------------- 
 				-- Die at any errors.
 				----------------------------------------------- 
-				-- LOG.prefix("Nils?") 
 				for inc,strval in ipairs(sqlt) do
 					if not strval then
 						return response.send({500},"Value at " .. inc 
@@ -1018,7 +1015,6 @@ local dbRecordManipulators = {
 		str = tostring(str .. ';')
 		if type(exec(str)) == 'userdata'
 		then
-		--	LOG.file(str)
 			cur = retrieve(exec(str))
 		end
 	--P(type(cur))
