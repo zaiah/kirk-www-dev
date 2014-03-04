@@ -48,11 +48,11 @@ local tags = {
 	"name",
 
 	-- Configure positioning.
-	"left", "l",
-	"right", "r",
-	"width", "w",
-	"height", "h",
-	"padding", "p",
+	"left", 
+	"right", 
+	"width", 
+	"height",
+	"padding",
 
 	-- Font messing abouts. 
 	"color", "fgcolor", "fg",
@@ -68,22 +68,27 @@ local tags = {
 
 
 return {
-------------------------------------------------------
--- .vert(t)
---
--- Use a vertical console by default.  Configure any 
--- specific items via table [t].
---
--- *nil 
-------------------------------------------------------
+	------------------------------------------------------
+	-- .vert(t)
+	--
+	-- Use a vertical console by default.  Configure any 
+	-- specific items via table [t].
+	--
+	-- *nil 
+	------------------------------------------------------
 	vertical = function (t)
+		-- die.xnil(t, "console.vertical")
+		
 		local ctags = table.union(tags, {
 			-- Bools
 			"bottom",
 			"top",
 		})
 
-		local this = table.retrieve( ctags, t )
+		local this = {}
+		if t then 
+			this = table.retrieve( ctags, t )
+		end
 
 		-- Add to the defaults
 		cdef.height = "100%"
@@ -111,8 +116,15 @@ return {
 						"position: fixed",
 						"overflow: auto",
 						"z-index: 99",
-						"left: " .. (this.left or cdef.left),						
-				--		"right: " .. (this.right or cdef.right),						
+						"top: 0px",
+						(function()
+							if this.left then
+								return "left: " .. (this.left or cdef.left)					
+							elseif this.right then
+								return "right: " .. (this.right or cdef.right)					
+							else return "left: " .. cdef.left
+							end
+						end)(),					
 						"height: " .. (this.height or cdef.height),						
 						"width: " .. (this.width or cdef.width),						
 						"padding: " .. (this.padding or cdef.padding),						
@@ -130,14 +142,14 @@ return {
 
 	end,
 
-------------------------------------------------------
--- .horiz(t) 
---
--- Use a horizontal console by default.  Configure any 
--- specific items via table [t].
---
--- *nil 
-------------------------------------------------------
+	------------------------------------------------------
+	-- .horiz(t) 
+	--
+	-- Use a horizontal console by default.  Configure any 
+	-- specific items via table [t].
+	--
+	-- *nil 
+	------------------------------------------------------
 	horizontal = function (t)
 		local this = table.retrieve({
 			"name",
@@ -160,35 +172,35 @@ return {
 				},";\n")))
 	end,
 
-------------------------------------------------------
--- .timing(t)
---
--- Fine tune as much data as possible when using the
--- timing library.
---
--- *nil
-------------------------------------------------------
+	------------------------------------------------------
+	-- .timing(t)
+	--
+	-- Fine tune as much data as possible when using the
+	-- timing library.
+	--
+	-- *nil
+	------------------------------------------------------
 	timing = function (t)
 	end,
 
-------------------------------------------------------
--- .config(t)
---
--- Don't let kirk configure any console styling for
--- you.  Do it all yourself.
---
--- *nil 
-------------------------------------------------------
+	------------------------------------------------------
+	-- .config(t)
+	--
+	-- Don't let kirk configure any console styling for
+	-- you.  Do it all yourself.
+	--
+	-- *nil 
+	------------------------------------------------------
 	config = function (t)
 	end,
 
-------------------------------------------------------
--- .show() 
---
--- Show the configured console.
---
--- *string 
-------------------------------------------------------
+	------------------------------------------------------
+	-- .show() 
+	--
+	-- Show the configured console.
+	--
+	-- *string 
+	------------------------------------------------------
 	show = function (s)
 		return table.concat({
 			table.concat( d_style_block ),

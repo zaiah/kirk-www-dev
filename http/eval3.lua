@@ -93,6 +93,13 @@ local xmlhttp_settings = {
 	dump_to  	= "", -- Dump generated Javascript as the result of an XMLHttp call to file.
 }
 
+local xhr = {
+	location = {}, -- Table for locations and unique names.
+	resources = {}, -- Accept requests for these?
+	dumpmaps = {},  -- ...
+	resmaps = {},   -- Have to access this from links to set the classes.
+}
+
 ------------------------------------------------------
 -- eval {}
 --
@@ -110,7 +117,10 @@ local eval = {
 	href 			= {["_d_"] = {} },	-- Set a place for resources.
 	order 		= {"skel","html"},	-- Default order for finding files.
 	xmlhttp 		= {["_d_"] = {}},  	-- Which groups get XMLHttp requests?
-	xhr = { ["_d_"] = {} }
+	
+	xhr = { ["_d_"] = {} },
+	xhr_names = {},  --
+	xhr_maps = {},   -- Unique names, but remember that resources may NOT be unique
 }
 
 ------------------------------------------------------
@@ -623,22 +633,22 @@ return {
 	-- *table
 	------------------------------------------------------
 	js = function ()
-	return {
-	   "/js/kirk-js/debug",
-	   "/js/kirk-js/xmlhttp",
-	   "/js/kirk-js/send_test_req",
-	   "/js/kirk-js/variables",
-	   "/js/kirk-js/autobind",
-	-- "/js/kirk-js/get",
-	   "/js/kirk-js/json",
-	-- "/js/kirk-js/kirk",
-	   "/js/kirk-js/os",
-	   "/js/kirk-js/send_get_req",
-	   "/js/kirk-js/send_multipart_post_req",
-	   "/js/kirk-js/send_www-url-form-enc-post_req",
-	-- "/js/kirk-js/testjs",
-	   "/js/kirk-js/init",
-	}
+		return {
+		   "/js/kirk-js/debug",
+		   "/js/kirk-js/xmlhttp",
+		   "/js/kirk-js/send_test_req",
+		   "/js/kirk-js/variables",
+		   "/js/kirk-js/autobind",
+		-- "/js/kirk-js/get",
+		   "/js/kirk-js/json",
+		-- "/js/kirk-js/kirk",
+		   "/js/kirk-js/os",
+		   "/js/kirk-js/send_get_req",
+		   "/js/kirk-js/send_multipart_post_req",
+		   "/js/kirk-js/send_www-url-form-enc-post_req",
+		-- "/js/kirk-js/testjs",
+		   "/js/kirk-js/init",
+		}
 	end,
 
 	------------------------------------------------------
@@ -677,55 +687,102 @@ return {
 			------------------------------------------------------
 			table.insert(js_dump, '<script type="text/javascript">')
 
+			-- These will probably be moved to js or something
 			------------------------------------------------------
 			-- arrayify(t, name)
 			--
-			-- Store in [name] all elements in [t].	
-			--
+			-- Store in [name] all elements in [t].  Otherwise
+			-- return string representation of Javascript array.
 			-- *string
 			------------------------------------------------------
 			local function arrayify( t, name ) 
-				local js = {}
-				local rsrc = "var " .. name .. " = [" 
-				for _,v in ipairs(t) 
-				do
-					-- Should I be chekicing if this is the right table type?
-					-- 
-					if type(v) ~= "string"
-					then
+				fname = "arrayify"
+				local js, js_str = {}, ""
+
+				if name then
+					js_str = "var " .. name .. " = [" 
+				else
+					js_str = "["
+				end
+				for _,v in ipairs(t) do
+					if type(v) ~= "string" then
 						die.xerror({
 							fn = fname,
-							msg = "local function <i>arrayify()</i> expects strings"
-							 .. " within it's first argument in %f"
+							msg = "local %f expects strings"
+							 .. " within supplied table."
 						})
 					end 
 					table.insert(js, "'" .. v .. "'")
 				end 
 
-				return table.concat( {rsrc, table.concat(js,","), "];"} )
+				return table.concat( {js_str, table.concat(js,","), "];"} )
 			end
+			
+			------------------------------------------------------
+			-- objectify(t, name)
+			-- 
+			-- Store in [name] all elements in [t].  Otherwise
+			-- return string representation of Javascript object.
+			-- Turn a table into a js object.
+			------------------------------------------------------
+			local function objectify( t, name ) 
+				fname = "objectify"
+				local js, js_str = {}, ""
+				
+				if name then
+					js_str = "var " .. name .. " = {" 
+				else
+					js_str = "{"
+				end
+				
+				for k,v in pairs(t) do
+					if type(v) ~= "string" then
+						die.xerror({
+							fn = fname,
+							msg = "local %f expects strings within supplied table."
+						})
+					end 
+					table.insert(js, table.concat({k, ": ", "'", v, "'"}))
+				end 
+
+				return table.concat( {js_str, table.concat(js,","), "};"} )
+			end
+			
 			
 			------------------------------------------------------
 			-- Set up all the datatypes.
 			------------------------------------------------------
 			local validation = {
 				autobind = {
-					datatypes = { "atable", "ntable", "string" },
+					datatypes = { "atable", "string" },
 					_atable = function (x)
 						for xx,yy in pairs(x) do
+							-- Set the location name.
+							local location_name, class_name = uuid.alpha(4), ""
+							xhr.location[ location_name ] = xx
 							
+							-- Set any available resources.
+							if type(yy) == 'table' and is.ni(yy) then
+								class_name = uuid.alpha(5)
+								for __,v in ipairs(yy) do
+									table.insert(xhr.resources, class_name)
+									
+									-- I need to do some group stuff here.
+									table.insert(eval.xhr._d_, v)
+								end
+							elseif type(yy) == 'string' then
+								class_name = uuid.alpha(5)
+								table.insert(xhr.resources, class_name) 
+							end
 						end
 					end,
 					_string  = function (x)
+						-- One "sink" is going to get all your resources.   Don't care from where.
+						xhr.location[ uuid.alpha(4) ] = x
+						
+						-- You need to set ALL the classes here.
+						table.insert(xhr.resources, x)
 					end,
-					_ntable = function (x)
-					end,
-				},
-				animate = {
-				},
-				hide = {
-				},
-				show = {
 				},
 			}
 
@@ -743,8 +800,7 @@ return {
 			-- Typecheck and validate.
 			if settings then
 				for k,v in pairs(settings) do
-					if type(v) ~= type(xmlhttp_settings[k])
-					then
+					if type(v) ~= type(xmlhttp_settings[k]) then
 						die.xerror({ 
 							fn = fname, tn = type(xmlhttp_settings[k]),
 							msg = "Expected type %t at index ["..k.."] in %f." 
@@ -757,15 +813,19 @@ return {
 			t = table.retrieve(table.keys(xmlhttp), t)
 
 			-- Cycle through each.
-			for n,v in pairs(t)
-			do
-				if t[v] then
-					shuffle(validation, t[v], v, fname)
+			for n,v in pairs(t) do	
+				if n == 'autobind' then
+					if t[n] then
+						shuffle(validation, t[n], n, fname)
+					end
 				end
 			end
 
+			-- Dump the Javascript.
+			table.insert(js_dump, arrayify( xhr.resources, "__RESOURCES__" ))
+			table.insert(js_dump, objectify( xhr.location, "__LOCATION__" ))
 			if settings.dump then
-				return "\n" .. table.concat(js_dump) .. "</script>\n"
+				return "\n" .. table.concat(js_dump, "\n") .. "\n</script>\n"
 			end
 		end
 	end,
@@ -859,7 +919,7 @@ return {
 				if fail.level[int] then
 					-- Throw auto 404
 					if fail.group[group] and not is.value(req, fail.except[group]) then
-						die.with(404, { nsg = "Cannot find page: " .. req .. "."})
+						die.with(404, {msg = "Cannot find page: " .. req .. "."})
 					end
 				else
 				end

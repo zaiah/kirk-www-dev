@@ -56,11 +56,8 @@ pg.dbsch	= D.generate_schema(pg.dbname)
 ------------------------------------------------------
 -- Finally add the globals needed to make this useful.
 ------------------------------------------------------
-data = {}					-- Globally accessible data.
-data.url  = {}				-- Hold URIs.
-data.resource = {}		-- Preprocessed datastore records.
-HEADERS 		 = {}			-- Pagan's HTTP headers
-HEADERS.USER = {}			-- Developer supplied HTTP headers.
+data = { url = {}, resource = {} }
+HEADERS = { USER = {} }
 
 ------------------------------------------------------
 -- crbody(queue,t) 
@@ -109,25 +106,9 @@ end
 --
 -- Tables for emulating standard in and standard out. 
 ------------------------------------------------------
-STDOUT, STDERR = {}, {}
-
-------------------------------------------------------
--- P(queue), B(queue)
---
--- Functions to add to STDOUT and STDERR, 
--- respectively.
-------------------------------------------------------
+STDOUT, STDIN, STDERR = {}, {}, {}
 P = function (queue) crbody(queue,STDOUT) end
 B = function (queue) crbody(queue,STDERR) end
-
-------------------------------------------------------
--- Tables for different server backends.
-------------------------------------------------------
--- local CLI = {}
--- local CGI = {}
--- local FCGI = {}
--- local WSGI = {}
--- local WSAPI = {}
 
 ------------------------------------------------------
 -- pseudo CLI 
@@ -135,106 +116,75 @@ B = function (queue) crbody(queue,STDERR) end
 -- Command line interface mode and options. 
 -- WARNING: Will be ported later.
 ------------------------------------------------------
-args = {...}
+local args = {...}
+if table.maxn(args) == 1 or table.maxn(args) > 1 then
+	-- For interface testing...
+	CGI = {
+	--	GATEWAY_INTERFACE = ,
+		PATH_INFO = "/",
+		PATH_TRANSLATED = "/",
+	--	QUERY_STRING = "/",
+	--	REMOTE_ADDR,
+		REQUEST_METHOD = "GET",
+	--	SCRIPT_NAME = ,
+	--	HTTP_COOKIE,
+	--	HTTP_INTERNAL_SERVER_ERROR,
+		SERVER_NAME = pg.domain,
+		SERVER_PORT = pg.port or 80,
+	--	SERVER_PROTOCOL = ,
+		SERVER_SOFTWARE = "Kirk",
+	--	REMOTE_HOST,
+	--	REMOTE_IDENT,
+	--	REMOTE_USER,
+	}
 
-if table.maxn(args) == 1 or table.maxn(args) > 1
-then
--- For interface testing...
-CGI = {
---	GATEWAY_INTERFACE = ,
-	PATH_INFO = "/",
-	PATH_TRANSLATED = "/",
---	QUERY_STRING = "/",
---	REMOTE_ADDR,
-	REQUEST_METHOD = "GET",
---	SCRIPT_NAME = ,
---	HTTP_COOKIE,
---	HTTP_INTERNAL_SERVER_ERROR,
-	SERVER_NAME = pg.domain,
-	SERVER_PORT = pg.port or 80,
---	SERVER_PROTOCOL = ,
-	SERVER_SOFTWARE = "Kirk",
---	REMOTE_HOST,
---	REMOTE_IDENT,
---	REMOTE_USER,
-}
+	-- Tell the CGI handler that we've already filled this table.
+	CGI_GEN = true 
 
--- Tell the CGI handler that we've already filled this table.
-CGI_GEN = true 
-
--- Move through the options in a clumsy manner.
-for x,n in ipairs(args) do
-	if n == 'path' then CGI.PATH_INFO = args[x + 1]
-	elseif n == 'cgi' then
-		for x,y in pairs(CGI) do P(x .. '\t' .. y) end
-	end 
-end
+	-- Move through the options in a clumsy manner.
+	for x,n in ipairs(args) do
+		if n == 'path' then CGI.PATH_INFO = args[x + 1]
+		elseif n == 'cgi' then
+			for x,y in pairs(CGI) do P(x .. '\t' .. y) end
+		end 
+	end
+	
+	-- Replacement for the above sometime in the future.
+	--[[
+	if pg.cli_on 
+	then
+		-- Evaluate any options.
+		local oo = require("cli/options")( {...} )	
+		if type(oo) == 'table' then
+			require("cli/logic")( oo )
+		end	
+	end
+	--]]
 end
 
 ------------------------------------------------------
--- Security and overrides.
--- RESTRICTED {} = Functions that aren't allowed. 
--- LOCAL_ONLY {} = Eventually these may be allowed.
+-- Disable a few things to keep from CGI hell.
 ------------------------------------------------------
-RESTRICTED = {
-	-- "os",
-	"assert",
-	"_VERSION",
-	"module",
-	"debug",
-	"_G",
-}
-
-LOCAL_ONLY = {
-	"getfenv",
-	"setfenv"
-}
-
-for _,e in ipairs(table.assimilate(LOCAL_ONLY,RESTRICTED))
-do
-	e = nil
-end
-
-os.execute 	= nil
-dofile		= nil
--- debug 	  	= nil
-
------------------------------------------------------- 
--- Options parsing.
--- 
--- Needs some way to block execution.
-------------------------------------------------------
---[[
-if pg.cli_on 
-then
-	-- Evaluate any options.
-	local oo = require("cli/options")( {...} )	
-	if type(oo) == 'table' then
-		require("cli/logic")( oo )
-	end	
-end
---]]
+assert      = nil  -- This stops execution and will not handle correctly.
+getfenv     = nil  -- Disable this.
+setfenv     = nil  -- Disable this.
+_G          = nil  -- Carry no globals this way.
+module 		= nil  -- Disable old global module functionality.
+os.execute 	= nil  -- Disable this in case of badly secured servers or stupid CGI tricks.
+dofile		= nil  -- Supposed to be using file.interpret for includes.
 
 ------------------------------------------------------ 
 -- Parse a certain backend.
 ------------------------------------------------------
-if pg.backend == 'CGI' or pg.backend == 'cgi'
- or not pg.backend
-then
+if pg.backend == 'CGI' or pg.backend == 'cgi' or not pg.backend then
 	require("handlers.cgi-2")
 
-elseif pg.backend == 'FCGI' or pg.backend == 'fcgi'
-then
+elseif pg.backend == 'FCGI' or pg.backend == 'fcgi' then
 	require("handlers.fcgi")
 
-elseif pg.backend == 'WSAPI' or pg.backend == 'wsapi'
-then
+elseif pg.backend == 'WSAPI' or pg.backend == 'wsapi' then
 	require("handlers.wsapi")
 
-elseif pg.backend == 'CLI' or pg.backend == 'cli'
-then
+elseif pg.backend == 'CLI' or pg.backend == 'cli' then
 	require("handlers.cli")
-
 end
-
-os.getenv 	= nil
