@@ -808,6 +808,7 @@ tag_wrap["href"] = function ( e1, e2, ts )
 ------------------------------------------------------
 tag_wrap["open"] = function(t)
 	local this,decl = {},{}
+
 	if t then
 		this = table.retrieve({
 			-- HTML4/5 Spec
@@ -830,7 +831,9 @@ tag_wrap["open"] = function(t)
 
 	-- Doctype madness.
 	if this.doctype then
-	else table.insert(decl,"<!doctype html>")	end	
+	else 
+		table.insert(decl, "<!doctype html>")
+	end
 
 	-- Start the head tag.
 	table.insert(decl,"<head>")
@@ -866,6 +869,32 @@ tag_wrap["open"] = function(t)
 		table.insert(decl,tag_wrap.title(title))
 	end
 
+	-- Placeholder string for Javascript.
+	local s = '<script src="%s.js"></script>'
+
+	-- kirk-js
+	if pg.xmlhttp then
+		for _,val in ipairs({
+		   "/js/kirk-js/debug",
+		   "/js/kirk-js/autobind",
+		   "/js/kirk-js/variables",
+		   "/js/kirk-js/xmlhttp",
+		   "/js/kirk-js/send_test_req",
+		-- "/js/kirk-js/get",
+		   "/js/kirk-js/json",
+		-- "/js/kirk-js/kirk",
+		-- "/js/kirk-js/os",
+		   "/js/kirk-js/send_get_req",		-- Amalgamate into requestor.js
+		   "/js/kirk-js/send_multipart_post_req",
+		   "/js/kirk-js/send_www-url-form-enc-post_req",
+		-- "/js/kirk-js/testjs",
+		   "/js/kirk-js/init",
+		})
+		do
+			table.insert(decl,string.format(s,val))
+		end	
+	end
+
 	-- Include any script tags.
 	if type(this.script) == 'string' 
 	then
@@ -874,7 +903,7 @@ tag_wrap["open"] = function(t)
 	elseif type(this.script) == 'table' 
 	then
 		for _,val in ipairs(this.script) do
-			table.insert(decl,string.format(s,this.script))
+			table.insert(decl,string.format(s,val))
 		end	
 	end
 
@@ -927,7 +956,7 @@ tag_wrap["open"] = function(t)
 	-- Add to STDOUT
 	------------------------------------------------------
 	table.insert(decl,"</head>")
-	P(table.concat(decl,'\n'))
+	P(table.concat(decl, "\n"))
 end
 
 ------------------------------------------------------

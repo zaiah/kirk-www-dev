@@ -96,8 +96,11 @@ local function crbody(queue,t)
 	-- [queue] can't do any userdata.
 	elseif type(queue) == 'userdata'
 	then
-		response.abort({500},"Cannot parse or interpret eleemnt of type `userdata`: " ..
-			tostring(userdata))
+		die.xerror({
+			fn = "crbody",
+			tn = type(queue),
+			msg = "Cannot parse or interpret %t at %f."
+		})
 	end
 end
 
