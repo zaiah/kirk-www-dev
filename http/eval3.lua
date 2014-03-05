@@ -96,7 +96,7 @@ local xmlhttp_settings = {
 local xhr = {
 	location = {}, -- Table for locations and unique names.
 	resources = {}, -- Accept requests for these?
-	dumpmaps = {},  -- ...
+	mapping = {},  -- ...
 	resmaps = {},   -- Have to access this from links to set the classes.
 }
 
@@ -559,42 +559,55 @@ return {
 			end
 
 			local links = {}
-			for __,v in ipairs(groupnames) -- href.group[href.group] )
+			for __,link_group in ipairs(groupnames) -- href.group[href.group] )
 			do
 				-- Move through strings doing replacements.
-				if t and t.string and t.string[v]
+				if t and t.string and t.string[link_group]
 				then
 					-- Will use a custom syntax.
-					for __,vv in ipairs(eval.group[v])
+					for __,link_value in ipairs(eval.group[link_group])
 					do
-						new_string = string.gsub(tostring(t.string[v]), '%%s', vv)
+						new_string = string.gsub(tostring(t.string[link_group]), '%%s', link_value)
 						table.insert(links, new_string) 
 					end
 
 				-- Move through the rest.
 				else
-					for __,vv in ipairs(eval.group[v])
+					for __,link_value in ipairs(eval.group[link_group])
 					do
 					table.insert(links, table.concat({
-						'<a href=',    -------------------------------------------- Start the tag.
-						'"' .. tostring(href.url_root[v] or href.url_root._d_), --- Relative root. 
-						vv .. '"',     -------------------------------------------- Resource name.
-						-- string.set(href.class[v] or href.class._d_," class"), ----- Class name.
-						-- " class=" .. tostring(href.class[v] or href.class._d_),
-						string.set(href.class[v] or href.class._d_, " class"), 
-						(function ()															-- ID name.
-							if href.id[v] or href.id._d_ then 							--
-								return string.set(vv, " id")								--
-							else return "" end     											-- 
-						end)(),                                                  --
-						">",           -------------------------------------------- Close the opening tag.
-				--		href.alias[v][vv] or vv, ---------------------------------- Resource name or alias
-						vv,            -------------------------------------------- Resource name only.
-						"</a>\n"       -------------------------------------------- Close the entire tag.
+						-- Start the tag.
+						'<a href=', 
+						-- Relative root.
+						'"' .. tostring(href.url_root[link_group] or href.url_root._d_), 
+						-- Resource name.
+						link_value .. '"',   
+						-- Class Name.
+						(function ()
+							-- local xhr_name = string.append(xhr.resources[link_value], " ") 
+							return string.set(table.concat({
+								string.append(xhr.resources[link_value], " "), 
+								href.class[link_group] or href.class._d_
+							}), " class")
+						end)(),
+						-- ID name
+						(function ()
+							if href.id[link_group] or href.id._d_ then
+								return string.set(link_value, " id")
+							else return "" end
+						end)(),
+						-- Close the opening tag.
+						">",
+						-- Resource name or alias.
+				--		href.alias[link_group][link_value] or link_value, 
+						-- Resource name only.
+						link_value, 
+						-- Close the entire tag.
+						"</a>\n"
 					}))	
-					end -- for __,vv in ipairs(eval.group[v])
-				end -- if t and t.string and t.string[v]
-			end -- for __,v in ipairs(group)
+					end -- for __,link_value in ipairs(eval.group[link_group])
+				end -- if t and t.string and t.string[link_group]
+			end -- for __,link_group in ipairs(group)
 
 			-- Reset to defaults, letting another link chain do work if specified.
 			href = defaults
@@ -680,8 +693,7 @@ return {
 	xhr = function (t)
 		local fname = "E.xhr"
 		
-		if t
-		then
+		if t then
 			------------------------------------------------------
 			-- Start the Javascript dump.
 			------------------------------------------------------
@@ -760,24 +772,31 @@ return {
 							-- Set the location name.
 							local location_name, class_name = uuid.alpha(4), ""
 							xhr.location[ location_name ] = xx
-							
+
 							-- Set any available resources.
 							if type(yy) == 'table' and is.ni(yy) then
-								class_name = uuid.alpha(5)
 								for __,v in ipairs(yy) do
-									table.insert(xhr.resources, class_name)
+									-- Must take groups into account.
 									
-									-- I need to do some group stuff here.
+									-- Save a record of the new class association.
+									xhr.resources[v] = "_" .. string.lower(uuid.alpha(7))
+									-- Also save how it's mapped for JS dump.
+									xhr.mapping[ xhr.resources[v] ] = location_name 
+									-- Save a record of the link needing presentation over XHR.
 									table.insert(eval.xhr._d_, v)
 								end
+							-- Set all the resources' class names.
 							elseif type(yy) == 'string' then
-								class_name = uuid.alpha(5)
-								table.insert(xhr.resources, class_name) 
+								xhr.resources[yy] = "_" .. string.lower(uuid.alpha(7))
+								xhr.mapping[ xhr.resources[yy] ] = location_name 
+								table.insert(eval.xhr._d_, yy)
 							end
 						end
 					end,
+
 					_string  = function (x)
-						-- One "sink" is going to get all your resources.   Don't care from where.
+						-- One "sink" is going to get all your resources.   
+						-- Don't care from where.
 						xhr.location[ uuid.alpha(4) ] = x
 						
 						-- You need to set ALL the classes here.
@@ -821,9 +840,12 @@ return {
 				end
 			end
 
-			-- Dump the Javascript.
-			table.insert(js_dump, arrayify( xhr.resources, "__RESOURCES__" ))
+			-- Generate the JS.
+			table.insert(js_dump, arrayify( table.values(xhr.resources), "__RESOURCES__" ))
 			table.insert(js_dump, objectify( xhr.location, "__LOCATION__" ))
+			table.insert(js_dump, objectify( xhr.mapping, "__MAPPING__" ))
+
+			-- Dump the Javascript.
 			if settings.dump then
 				return "\n" .. table.concat(js_dump, "\n") .. "\n</script>\n"
 			end
@@ -839,7 +861,7 @@ return {
 	-- 
 	-- Example and Usage:
 	-- <pre>
-	-- E.fail({       -- Fail with a 404 if resources at n are not found.
+	-- E.fail({     -- Fail with a 404 if resources at n are not found.
 	-- 	level 	 = [number]          -- at level [number]
 	-- 	resources = [string, table]   -- If these resources are received,
    --                                  -- then it's ok.

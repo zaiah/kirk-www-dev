@@ -55,9 +55,7 @@ local lib = {
 	------------------------------------------------------
 	set = function (text,key)
 		local rt = ""
-		if text and key
-		 and text ~= ''
-		 and key ~= ''
+		if text and key and text ~= '' and key ~= ''
 		then
 			rt = string.format("%s=\"%s\"",key,text)
 		elseif text
@@ -68,6 +66,36 @@ local lib = {
 			rt = '' -- nil??? 
 		end
 		return rt
+	end,
+
+	------------------------------------------------------
+	-- append()
+	-- 
+	-- Append something to a string, returning the string
+	-- plus the appendange if the string is not empty.
+	-- *string or *nil
+	------------------------------------------------------
+	append = function (s,a)
+		if s and type(s) == 'string' and type(a) == 'string' then
+			return s .. a
+		else
+			return ""
+		end
+	end,
+
+	------------------------------------------------------
+	-- append()
+	-- 
+	-- Append something to a string, returning the string
+	-- plus the appendange if the string is not empty.
+	-- *string or *nil
+	------------------------------------------------------
+	prepend = function (s,p)
+		if s and type(s) == 'string' and type(p) == 'string' then
+			return p .. s
+		else
+			return ""
+		end
 	end,
 
 	------------------------------------------------------
