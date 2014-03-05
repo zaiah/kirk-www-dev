@@ -648,15 +648,15 @@ return {
 	js = function ()
 		return {
 		   "/js/kirk-js/debug",
+		   "/js/kirk-js/autobind",
+		   "/js/kirk-js/variables",
 		   "/js/kirk-js/xmlhttp",
 		   "/js/kirk-js/send_test_req",
-		   "/js/kirk-js/variables",
-		   "/js/kirk-js/autobind",
 		-- "/js/kirk-js/get",
 		   "/js/kirk-js/json",
 		-- "/js/kirk-js/kirk",
-		   "/js/kirk-js/os",
-		   "/js/kirk-js/send_get_req",
+		-- "/js/kirk-js/os",
+		   "/js/kirk-js/send_get_req",		-- Amalgamate into requestor.js
 		   "/js/kirk-js/send_multipart_post_req",
 		   "/js/kirk-js/send_www-url-form-enc-post_req",
 		-- "/js/kirk-js/testjs",

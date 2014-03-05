@@ -23,18 +23,19 @@ local d_style_block = {}
 ------------------------------------------------------
 local cdef = {	
 	name = {
-		console = "__console",
-		timing = "__timing",
-		server_side = "__server_side",
-		tables = "__tables",
-		external = "__external",
+		console 	= "__console",		-- Debugging console
+		timing 	= "__timing",		-- Timing data.
+		backend 	= "__backend",		-- Backend data. (Append w/ console.out())
+		frontend = "__frontend",	-- Frontend data. (Append w/ stdout_debug())
+		vault 	= "__vault",		-- Secure data like cookies and sessions.
 	},
-	left = "0px",
-	padding = "10px",
+	right = "1%",
+	padding = "1%",
 	bg = "black",
 	mh = "14px",
 	fg = "white",
-	size = "10px"	-- If this is a number, then px should be auto, maybe.
+	family = "monospace",
+	size = "11px"	-- If this is a number, then px should be auto, maybe.
 }
 
 ------------------------------------------------------
@@ -64,6 +65,7 @@ local tags = {
 
 	-- Type of "omit" can be a table (or string) 
 	"omit",
+	"family",
 }
 
 
@@ -91,8 +93,8 @@ return {
 		end
 
 		-- Add to the defaults
-		cdef.height = "100%"
-		cdef.width = "200px"
+		cdef.height = "90%"
+		cdef.width = "300px"
 
 		-- bottom or top?
 		if this.bottom then 
@@ -107,39 +109,81 @@ return {
 		-- Send an inline style. 
 		table.insert( d_style_block, 
 			_.style({ type = "text/css" },
-				"\n#" .. 
-				((cdef.name.console) .. " {\n\t") ..
+
 				table.concat({
+					-- Entire console window.
+					"\n#" .. ((cdef.name.console) .. " {\n\t") ..
+					table.concat({
+						-- (this.name or cdef.name.console) .. " {\n\t",
+							"position: fixed",
+							"overflow: auto",
+							"z-index: 99",
+							"border-radius: 10px",
+							"-moz-border-radius: 10px",
+							"opacity: 0.8",
+							"filter:alpha(opacity=80)",
+							"-webkit-border-radius: 10px",
+							"top: 2.5%",
+							(function()
+								if this.left then
+									return "left: " .. (this.left or cdef.left)
+								elseif this.right then
+									return "right: " .. (this.right or cdef.right)
+								else return "right: " .. cdef.right
+								end
+							end)(),					
+							"height: " .. (this.height or cdef.height),
+							"width: " .. (this.width or cdef.width),						
+							"padding: " .. (this.padding or cdef.padding),
+							"font-size: " .. (this.size or cdef.size),
+							"font-family: " .. (this.family or cdef.family),
+							"background-color: " .. (this.bg or cdef.bg),
+							"color: " .. (this.fg or cdef.fg),
+							"margin-bottom: " .. (this.mh or cdef.mh),
+						},";\n\t")
+					.. ";\n}\n",
 
-					-- Console.
-					-- (this.name or cdef.name.console) .. " {\n\t",
-						"position: fixed",
-						"overflow: auto",
-						"z-index: 99",
-						"top: 0px",
-						(function()
-							if this.left then
-								return "left: " .. (this.left or cdef.left)					
-							elseif this.right then
-								return "right: " .. (this.right or cdef.right)					
-							else return "left: " .. cdef.left
-							end
-						end)(),					
-						"height: " .. (this.height or cdef.height),						
-						"width: " .. (this.width or cdef.width),						
-						"padding: " .. (this.padding or cdef.padding),						
-						"font-size: " .. (this.size or cdef.size),						
-						"background-color: " .. (this.bg or cdef.bg),						
-						"color: " .. (this.fg or cdef.fg),
-						"margin-bottom: " .. (this.mh or cdef.mh),
-
-					-- Timing if asked for.
-
-					-- Other omits...
+					-- Timing window.
+					"\n#" .. ((cdef.name.timing) .. " {\n\t") ..
+					table.concat({
+						"background-color: white",
+						"color: black",
+						"padding: 5px",
+						"margin: 5px",
 					},";\n\t")
-			 .. ";\n}\n"
-			))
+					.. ";\n}\n",
 
+					-- Details window.
+					"\n#" .. ((cdef.name.vault) .. " {\n\t") ..
+					table.concat({
+						"background-color: gray", 
+						"padding: 5px",
+						"margin: 5px"
+					},";\n\t")
+					.. ";\n}\n",
+						
+						-- Frontend window.
+					"\n#" .. ((cdef.name.backend) .. " {\n\t") ..
+					table.concat({
+						"background-color: green", 
+						"padding: 5px",
+						"margin: 5px"
+					},";\n\t")
+					.. ";\n}\n",
+
+					"\n#" .. ((cdef.name.frontend) .. " {\n\t") ..
+						table.concat({
+						"background-color: red",
+						"padding: 5px",
+						"margin: 5px"
+						},";\n\t")
+					.. ";\n}\n",
+
+					"\n.__smallish { font-size: 8px; letter-spacing: 1px; text-transform: uppercase;}",
+					"\na.__debugging { font-size: 7px; letter-spacing: 1px; }",
+					"\nli.__debugging { list-style-type: none; }"
+				}) -- table.concat({ 
+			)) 
 	end,
 
 	------------------------------------------------------
@@ -207,16 +251,32 @@ return {
 			_.id("__console", table.concat({ 
 
 				-- Show timing information.
-				_.div("__timing", "Page load time: " .. 19.12312312312213 .. 
-					(os.time() - TIME) ),
+				_.id("__timing", 
+					_.span("__smallish", "Request generation time: ") .. 
+					19.123123123 ..  " secs "), 
+				--	(os.time() - TIME) ),
 
 				-- Application information.
-				_.div("__external", "Application Information: " .. _.i("none")),
+				_.id("__backend", 
+					_.div("__smallish", "Backend: ") .. 
+					"Application Information: " .. _.i("none")),
 
 				-- Show JS.
+				_.id("__frontend", 
+					_.div("__smallish", "Frontend: ") .. 
+					"Application Information: " .. _.i("none")),
 
 				-- Show session.
-			}))
-		})
+				_.id("__vault", 
+					_.div("__smallish", "Private Data: ") .. 
+					"Application Information: " .. _.i("none")),
+			})),
+[[
+<script type="text/javascript">
+	init_debug();
+//	ab_break();
+</script>
+]]	
+		},"\n")
 	end,
 }
