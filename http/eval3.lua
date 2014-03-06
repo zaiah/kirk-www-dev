@@ -93,11 +93,13 @@ local xmlhttp_settings = {
 	dump_to  	= "", -- Dump generated Javascript as the result of an XMLHttp call to file.
 }
 
-local xhr = {
-	location = {}, -- Table for locations and unique names.
-	resources = {}, -- Accept requests for these?
-	mapping = {},  -- ...
-	resmaps = {},   -- Have to access this from links to set the classes.
+xhr = {
+	status = false,	-- False until you do something.
+	js = {},				-- A string for all the Javascript we'll use?
+	location = {}, 	-- Table for locations and unique names.
+	resources = {}, 	-- Accept requests for these?
+	mapping = {},  	-- ...
+	resmaps = {},   	-- Have to access this from links to set the classes.
 }
 
 ------------------------------------------------------
@@ -124,13 +126,13 @@ local eval = {
 }
 
 ------------------------------------------------------
--- js_dump str
+-- xhr.js str
 --
 -- A table that will hold the contents of 
 -- a script used to generate XMLHttp and basic 
 -- Javascript scaffolding. 
 ------------------------------------------------------
-local js_dump = {}
+-- local xhr.js = {}
 
 ------------------------------------------------------
 -- eval {}
@@ -639,32 +641,6 @@ return {
 	end,
 	
 	------------------------------------------------------
-	-- .js()
-	--
-	-- Returns a table of Javascript resource names 
-	-- while we work out the logistics of including xhr.
-	-- *table
-	------------------------------------------------------
-	js = function ()
-		return {
-		   "/js/kirk-js/debug",
-		   "/js/kirk-js/autobind",
-		   "/js/kirk-js/variables",
-		   "/js/kirk-js/xmlhttp",
-		   "/js/kirk-js/send_test_req",
-		-- "/js/kirk-js/get",
-		   "/js/kirk-js/json",
-		-- "/js/kirk-js/kirk",
-		-- "/js/kirk-js/os",
-		   "/js/kirk-js/send_get_req",		-- Amalgamate into requestor.js
-		   "/js/kirk-js/send_multipart_post_req",
-		   "/js/kirk-js/send_www-url-form-enc-post_req",
-		-- "/js/kirk-js/testjs",
-		   "/js/kirk-js/init",
-		}
-	end,
-
-	------------------------------------------------------
 	-- .xhr()
 	--
 	-- Bind resources to XMLHttpRequests. 
@@ -697,7 +673,7 @@ return {
 			------------------------------------------------------
 			-- Start the Javascript dump.
 			------------------------------------------------------
-			table.insert(js_dump, '<script type="text/javascript">')
+			table.insert(xhr.js, '<script type="text/javascript">')
 
 			-- These will probably be moved to js or something
 			------------------------------------------------------
@@ -841,13 +817,16 @@ return {
 			end
 
 			-- Generate the JS.
-			table.insert(js_dump, arrayify( table.values(xhr.resources), "__RESOURCES__" ))
-			table.insert(js_dump, objectify( xhr.location, "__LOCATION__" ))
-			table.insert(js_dump, objectify( xhr.mapping, "__MAPPING__" ))
+			table.insert(xhr.js, arrayify( table.values(xhr.resources), "__RESOURCES__" ))
+			table.insert(xhr.js, objectify( xhr.location, "__LOCATION__" ))
+			table.insert(xhr.js, objectify( xhr.mapping, "__MAPPING__" ))
 
 			-- Dump the Javascript.
+			xhr.status = true
 			if settings.dump then
-				return "\n" .. table.concat(js_dump, "\n") .. "\n</script>\n"
+				return "\n" .. table.concat(xhr.js, "\n") .. "\n</script>\n"
+			else
+				table.insert(xhr.js,"</script>")
 			end
 		end
 	end,

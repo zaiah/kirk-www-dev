@@ -71,6 +71,24 @@ local function up_chain(n, discard)
 	-- failed?
 end
 
+
+------------------------------------------------------
+-- local eval_css()
+--
+-- Check if XHR is enabled, and send the proper
+-- styling of errors back.
+------------------------------------------------------
+local function eval_css()
+	if xhr.status then
+		return ""
+	else
+		return table.concat({
+			"\n\t\t<link rel=stylesheet href=/styles/default/zero.css>",
+			"\n\t\t<link rel=stylesheet href=/styles/default/error.css>"
+		})
+	end
+end
+
 ------------------------------------------------------
 -- local die(t)
 --
@@ -179,8 +197,11 @@ local function die(t)
 		m = t.msg
 	end
 
+	-- A CSS Stream for regular errors.
+
 	-- Send completed death message. 
 	response.abort({500}, render.file({{
+		css 			= eval_css(), 
 		msg 			= m or "A server error has occurred.",
 		status 		= s or scodes[500],
 		code 			= 500,
@@ -278,13 +299,13 @@ return {
 			-- it only works with tables 2 levels deep.  This will change
 			-- in the future, but for now, it looks like this.
 			local errt = {{
+				css = eval_css(), 
 				msg = m.msg or "", 
 			 	status = m.status or scodes[n],
 				code = n,
 				stacktrace = m.stacktrace or "",
 			}}
 			
-
 			-- Return the final status code.
 			response.abort({n}, render.file( errt, "error" ))
 		else

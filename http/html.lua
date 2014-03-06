@@ -870,10 +870,11 @@ tag_wrap["open"] = function(t)
 	end
 
 	-- Placeholder string for Javascript.
-	local s = '<script src="%s.js"></script>'
+	local s = '<script type="text/javascript" src="%s.js"></script>'
 
-	-- kirk-js
-	if pg.xmlhttp then
+	-- Evaluate for XMLHttpRequest capability.
+	if pg.xmlhttp and xhr.js then
+		-- Include kirk-js here.
 		for _,val in ipairs({
 		   "/js/kirk-js/debug",
 		   "/js/kirk-js/autobind",
@@ -892,7 +893,19 @@ tag_wrap["open"] = function(t)
 		})
 		do
 			table.insert(decl,string.format(s,val))
-		end	
+		end
+
+		-- Iniitialize our body statement. 
+		-- xhr.autobind should be first...
+		-- xhr.bind, and brethren should be second...
+		if type(xhr.js) == 'table'
+		then
+			-- Include anything we've started with E.xhr... 
+			table.insert(decl,table.concat(xhr.js,"\n"))
+
+			-- Include autobind's initialization.
+			-- table.insert(decl,string.format(s, "/js/kirk-js/init"))
+		end
 	end
 
 	-- Include any script tags.
@@ -942,14 +955,6 @@ tag_wrap["open"] = function(t)
 
 	-- Grab additional links and includes.
 	if this.link then
-	end
-
-	-- Activate xmlhttp object.
-	-- Automatically includes kirk.js:
-	-- refer to js/kirk.js for more on what exactly is going on.
-	if this.xmlhttp then
-		local s = '<script type="text/javascript" src="/js/kirk.js"></script>'
-		table.insert(decl,s)
 	end
 
 	------------------------------------------------------
