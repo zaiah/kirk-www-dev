@@ -153,21 +153,17 @@ return {
 		-- Set a default resource
 		if type(term) == 'string' then
 			eval.default._d_ = term
+
 		elseif type(term) == 'table' then
-			if is.ni(term) then
-				die.xerror({
-					fn = "E.default",
-					msg = "Received numerically indexed table at %f. "  
-					 .. "Expected alphabetically indexed table."
-				})
-			end
+--			die.quick(table.dump(term))
 			
-			-- die.xntable(term, "E.default") | die.xatable(term, "E.default")
 			for xx,yy in pairs(term) do
-				if type(xx) == "number" then
+				-- Specify a "global" default.
+				if type(xx) == 'number' then
 					eval.default._d_ = yy
-				else
-					eval.default[xx] = yy
+				-- Specify other defaults...
+				elseif type(xx) == 'string' then
+					eval.default[xx] = yy 
 				end
 			end
 		end
@@ -530,6 +526,7 @@ return {
 						end
 					end
 
+					groupnames = t.group -- or eval.group
 				-- Check if the string is actually a group member.
 				else
 					if not is.key(t.group, eval.group)
@@ -540,8 +537,9 @@ return {
 							.. "exist at %f."
 						})
 					end
+
+					groupnames = { t.group } -- or eval.group
 				end
-				groupnames = t.group -- or eval.group
 			else
 				groupnames = { "_d_" }
 			end -- if t and t.group
@@ -889,20 +887,39 @@ return {
 		-- *string or *nil
 		------------------------------------------------------
 		local function srv_req( req, group_sel )
-			-- die.quick(tostring(req))
 			-- Define some starter details.
 			local payload
 			local group = group_sel or "_d_"
 			local req = req or eval.default[group]
+			local gt = table.keys(table.retrieve_non_matching({"_d_"},eval.group))
+
+			-- Die if grouped resoures were selected.
+			if not eval.default._d_ and gt and table.maxn(gt) > 0 then
+				if not group_sel then
+					die.xerror({
+						fn = "E.serve", -- ifn links to internal functions
+						msg = "Groups exist at <b>function</b> <i>E.set()</i>, " ..
+							"but no default group "..
+							"payload has been specified at %f."
+					})
+				end
+			end
 
 			-- Die on no default.
 			if not eval.default[group] then
-				-- If there is a group specified, this will change.
-				die.xerror({
-					fn = "E.serve",
-					msg = "No default payload mapped to resource "..
-					 tostring(int).." at %f."
-				})
+				if group == '_d_' then
+					die.xerror({
+						fn = "E.serve",
+						msg = "No default payload mapped to resource "..
+						tostring(req).." at %f."
+					})
+				else
+					die.xerror({
+						fn = "E.serve",
+						msg = "No default payload has been mapped for the group '"..
+						tostring(group).."' at %f."
+					})
+				end
 			end
 
 			-- Die if the group doesn't exist.
