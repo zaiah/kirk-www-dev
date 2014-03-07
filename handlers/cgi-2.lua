@@ -185,7 +185,7 @@ then
 		local count, srv = 1, {}
 		local is_page
 		local url = string.gmatch(CGI.PATH_INFO,'/([0-9,A-Z,a-z,_,\(,\),#,-]*)')
-			
+
 		------------------------------------------------------
 		-- Save GET.  
 		------------------------------------------------------
@@ -196,8 +196,11 @@ then
 		------------------------------------------------------
 		-- Make the url more accessible.
 		------------------------------------------------------
+		local urlt = {}
 		for v in url do
-			table.insert(data.url, v)
+			if v ~= "" then
+				table.insert(data.url, v)
+			end
 		end
 
 		------------------------------------------------------

@@ -320,16 +320,16 @@ return {
 	--
 	-- <pre>
 	-- E.links({
-	--    as      = [table, string] 	-- Output link list as table or string.
-	--    url_root    = [string]        	-- Creates href relative to [root].
-	--    class   = [string]       	-- A class name for each.
-	--    id      = [bool]          	-- Use the resource name as an id.
-	--    string  = [string]        	-- Use this string as the link dump.
-	--    subvert = [table, string] 	-- Do not include these resources as links.
+	--   url_root = [string]    		-- Creates href relative to [root].
+	--    class   = [string]    		-- A class name for each.
+	--    id      = [bool]       		-- Use the resource name as an id.
+	--    string  = [string]     		-- Use this string as the link dump.
+	--    subvert = [table, string] 	-- Don't include these as links.
 	--    group   = [string]        	-- Choose a resource group if many have
 	--                             	-- been specified.
 	--    alias   = [table]         	-- Choose which resources to serve
 	--                             	-- with an entirely different link name.
+	--    as      = [table]         	-- Omitting as will return a string.
 	-- })
 	-- </pre>
 	--
@@ -560,6 +560,11 @@ return {
 				end
 			end
 
+         ------------------------------------------------------
+			-- Run through logic here for different payload
+			-- formats.
+         ------------------------------------------------------
+
 			local links = {}
 			for __,link_group in ipairs(groupnames) -- href.group[href.group] )
 			do
@@ -614,14 +619,8 @@ return {
 			-- Reset to defaults, letting another link chain do work if specified.
 			href = defaults
 			
-			-- Finally output everything new.
-			local as = t.as or href.as
-			if as == 'string' 
-			then 
-				return table.concat(links,"\n")
-			else 
-				return links
-			end
+			-- Return link list to environment.
+			return link_list or table.concat(links,"\n")
 	
 		-- Catch bad arguments to E.links()
 		else
