@@ -17,35 +17,35 @@ pg = dofile("../data/definitions.lua")
 -- Load functionality.  
 ------------------------------------------------------
 interpret = require("file.interpret")		-- Wrap loading files.
-is        = require("extension.tests").is 	-- Useful tests.
-are       = require("extension.tests").are	-- More useful tests.
-table     = require("extension.tables")		-- Table extensions. 
+is        = require("extension.tests").is -- Useful tests.
+are       = require("extension.tests").are -- More useful tests.
+table     = require("extension.tables")	-- Table extensions. 
 string    = require("extension.strings") 	-- String extensions. 
 date      = require("extension.date")		-- Dates
 uuid      = require("extension.uuid")		-- Random ID Generation
 shuffle   = require("extension.shuffler")	-- Shuffle keys from a table.
 arg       = require("extension.arg")		-- Repetitive argument processing.
--- co     = require("extension.coroutine")  -- Send functions through coroutines.
+-- co     = require("extension.coroutine")-- Send functions through coroutines.
 
-response  = require("http.response")        -- Response library
--- request = require("http.request")        -- Request library.
+response  = require("http.response")      -- Response library
+-- request = require("http.request")      -- Request library.
 html      = require("http.html").html		-- HTML encapsulation.
 htags     = require("http.html").htags		-- List of available HTML tags
 _         = html							-- Will have to replace b/c this overloads.
 cookie    = require("http.cookie")			-- Cookies
 scodes    = require("http.status")			-- Common status codes.
-E         = require("http.eval3")			-- Routing and resources.
+E         = require("http.eval4")			-- Routing and resources.
 
-D         = require("ds.db")				-- ORM interface
+D         = require("ds.db")					-- ORM interface
 F         = require("file.file") 			-- File interaction
 add       = require("file.add")				-- Preload common files.
 -- S      = require("http.sockets")			-- Send data over sockets.
 C         = require("ds.content")			-- Get something from a database.
-as        = require("ds.serialization")		-- Serialization formats.
+as        = require("ds.serialization")	-- Serialization formats.
 render    = require("template/render")		-- Template rendering.
-die       = require("error")				-- Error handling.
-ctypes    = require("http.content-types")   -- Possible Content-Types
-console   = require("debugger")             -- Console for debugging.
+die       = require("error")					-- Error handling.
+ctypes    = require("http.content-types")  -- Possible Content-Types
+console   = require("debugger")            -- Console for debugging.
 
 ------------------------------------------------------
 -- There must be something else that will help you
