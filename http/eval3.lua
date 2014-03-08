@@ -25,39 +25,37 @@ local href = {
 }
 
 ------------------------------------------------------
--- serve
---
--- Defaults for serving.
-------------------------------------------------------
-local serve = {
-	fail = { ["_d_"] = false },
-	autobind = { ["_d_"] = false },
-	default = { ["_d_"] = false },	
-	level = { ["_d_"] = false },	
-	tolerant = false,
-}
-
-------------------------------------------------------
 -- fail
+--
+-- level 	= [number]
+--	The number of the portion of the url to fail at.
+-- except 	= [string or table];	
+-- If catching a request matching any resources in this table, don't fail.
+-- message	= [string]
+-- Replace the usual 404 error message with this.
+-- handler	= [string]
+-- Replace Kirk's 404 handler with a custom one. Must always start with a slash.
 ------------------------------------------------------
 local fail = {
-	level = {},							-- If failing, use this as a guide for when.
+	level = {},								-- If failing, use this as a guide for when.
 	except = { ["_d_"] = false },		-- Do not fail at receipt of these resources.
-	message = { ["_d_"] = false },		-- Define a different message, w/ no handler. 
-	handler = { ["_d_"] = false	},		-- Use a totally different handler.
+	message = { ["_d_"] = false },	-- Define a different message, w/ no handler. 
+	handler = { ["_d_"] = false	},	-- Use a totally different handler.
 }
 
 ------------------------------------------------------
 -- xmlhttp {}
 --
 -- Table to hold XMLHttpRequest transport parameters.
+--
+-- autobind = 
 ------------------------------------------------------
 local xmlhttp = {
 	-- Binding 
 	autobind = { ["_d_"] = false },	-- Define each item that will dump resources at a location.
 	bind 		= { ["_d_"] = false },	-- Bind resources to events. 
-	bind_points = {},  -- Empty table for items to bind to.
-	bind_resources = {}, -- Empty table for binding resources.
+	bind_points = {},  					-- Empty table for items to bind to.
+	bind_resources = {}, 				-- Empty table for binding resources.
 	
 	-- Animation
 	animate 	= { ["_d_"] = false },	-- Use basic animation when doing stuff.
@@ -86,20 +84,35 @@ local xmlhttp = {
 local xmlhttp_settings = {
 	-- Settings
 	unique 		= false, -- Use unique identifiers as classes.
-	inline 		= false, -- Use inline styles instead of raw Javascript to locate elements.
+	inline 		= false, -- Use inline styles instead of raw Javascript 
+								-- to locate elements.
 	namespace   = "",  	-- Set up a different namespace for classes.
-	wait 			= false, -- Wait until a response is received before moving further.
-	dump 			= false, -- Dump generated Javascript as the result of an XMLHttp call.
-	dump_to  	= "", -- Dump generated Javascript as the result of an XMLHttp call to file.
+	wait 			= false, -- Wait until a response is received before moving 
+								-- further.
+	dump 			= false, -- Dump generated Javascript as the result of an 
+								-- XMLHttp call.
+	dump_to  	= "", 	-- Dump generated Javascript as the result of an 
+								-- XMLHttp call to file.
 }
 
+------------------------------------------------------
+-- xhr {} 
+--
+-- status 	= Kirk checks here to see if any automatic XMLHTTPRequest logic has been asked for.
+-- js 		= Global table for all dynamically generated Javascript during a session.
+-- location	= Table holding a map of location names to unique ID's.
+-- resources = ?
+-- mapping 	= Table holding a map of location names to unique ID's.
+------------------------------------------------------
 xhr = {
-	status = false,	-- False until you do something.
-	js = {},				-- A string for all the Javascript we'll use?
-	location = {}, 	-- Table for locations and unique names.
-	resources = {}, 	-- Accept requests for these?
-	mapping = {},  	-- ...
-	resmaps = {},   	-- Have to access this from links to set the classes.
+	status = false,	-- Boolean to indicate whether or not developer has
+							-- requested XHR.
+	js = {},				-- Table for Kirk's dynamically generated Javascript.
+	location = {}, 	-- Key-Value table mapping DOM elements to unique IDs
+	resources = {}, 	-- Table of resources expected to be served over XHR.
+	mapping = {},  	-- Key-Value table mapping resource payloads to DOM 
+							-- elements.
+	masquerade = {}, 	-- Fake group's links.
 }
 
 ------------------------------------------------------
@@ -126,13 +139,68 @@ local eval = {
 }
 
 ------------------------------------------------------
--- xhr.js str
+-- local arrayify(t, name)
 --
--- A table that will hold the contents of 
--- a script used to generate XMLHttp and basic 
--- Javascript scaffolding. 
+-- Store in a Javascript array [name] all elements in [t].  
+-- Otherwise return string representation of Javascript 
+-- array. [t] must be a table.
+--
+-- *string
 ------------------------------------------------------
--- local xhr.js = {}
+local function arrayify( t, name ) 
+	fname = "arrayify"
+	local js, js_str = {}, ""
+
+	if name then
+		js_str = "var " .. name .. " = [" 
+	else
+		js_str = "["
+	end
+	for _,v in ipairs(t) do
+		if type(v) ~= "string" then
+			die.xerror({
+				fn = fname,
+				msg = "local %f expects strings"
+					.. " within supplied table."
+			})
+		end 
+		table.insert(js, "'" .. v .. "'")
+	end 
+
+	return table.concat( {js_str, table.concat(js,","), "];"} )
+end
+
+------------------------------------------------------
+-- local objectify(t, name)
+-- 
+-- Store in a Javascript object [name] all elements in [t].  
+-- Otherwise return an anonymous string representation of 
+-- a Javascript object. [t] must be a table.
+--
+-- *string
+------------------------------------------------------
+local function objectify( t, name ) 
+	fname = "objectify"
+	local js, js_str = {}, ""
+	
+	if name then
+		js_str = "var " .. name .. " = {" 
+	else
+		js_str = "{"
+	end
+	
+	for k,v in pairs(t) do
+		if type(v) ~= "string" then
+			die.xerror({
+				fn = fname,
+				msg = "local %f expects strings within supplied table."
+			})
+		end 
+		table.insert(js, table.concat({k, ": ", "'", v, "'"}))
+	end 
+
+	return table.concat( {js_str, table.concat(js,","), "};"} )
+end
 
 ------------------------------------------------------
 -- eval {}
@@ -338,29 +406,33 @@ return {
 		-- Copy defaults
 		local defaults = table.clone(href) 
 
+		------------------------------------------------------
 		-- If [t] is blank, then output the links 
 		-- as a string.
-		if not t
-		then
+		------------------------------------------------------
+		if not t then
 			-- Shut down if E.set() was not called yet.
 			die.xempty(eval.group._d_)
+			--[[
+			if not eval.group._d_ then
+		--		die.xerror({ fn = "E.links", msg = "E.set
+			end
+			--]]
 			
 			-- Output a very simple link list.
-			for k,v in pairs( eval.group._d_ )
-			do
-				linkstr = string.gsub(
-					'<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', v)
-				-- check if v is a string, if so, reject. 	
-				-- table.insert(tt, tostring(k) .. ": "..  tostring(v)) 
+			for k,v in pairs( eval.group._d_ ) do
+				linkstr = string.gsub('<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', tostring(v))
 				table.insert(tt, linkstr)
 			end
 
 			-- Return the links.
 			return table.concat(tt)
 
+		------------------------------------------------------
 		-- If [t] is a string, then output the links for the 
 		-- group represented by that string. Dying with an 
 		-- error if that group does not exist.
+		------------------------------------------------------
 		elseif type(t) == 'string'
 		then
 			-- Shut down if the group asked for does not exist.
@@ -377,14 +449,15 @@ return {
 			-- Return the links.
 			return table.concat(tt)
 
-		-- If [t] is a table, then you'll be handling more complex
-		-- functionality.
+		------------------------------------------------------
+		-- If [t] is a table, then you'll be handling more 
+		-- complex functionality.
+		------------------------------------------------------
 		elseif type(t) == 'table'
 		then
 			-- Refer to interface/extension/shuffler.lua for more on
 			-- this big baby of a table.
 			local validation = {
-				-- Handle classes.
 				class = { 
 					datatypes = { "string", "atable", "ntable" }, 
 					_string = function (x)
@@ -455,17 +528,88 @@ return {
 					end,
 				},
 
+            ------------------------------------------------------
+            -- subvert 
+            --
+            -- accepts: string, atable or ntable
+				--
+				-- If value for subvert is a string, then only that
+				-- resource will not show.  If value is ntable, all
+				-- those values won't show.  If value is atable,
+				-- keys will point to a group.  No key will assign it
+				-- to default.
+            ------------------------------------------------------
 				subvert = { 
 					datatypes = { "string", "atable", "ntable" }, 
-					_string = function () 
+					_string = function (x)
+						local ind = table.index(eval.group["_d_"], x)
+						table.remove(eval.group["_d_"], ind) 
 					end,
-					_table = function () 
+					_ntable = function (x) 
+						for xx,yy in ipairs(x) do
+							local ind = table.index(eval.group["_d_"], yy)
+							table.remove(eval.group["_d_"], ind) 
+						end
+					end,
+					_atable = function (x) 
+						for xx,yy in pairs(x) do
+							if type(xx) == 'number' then
+								if type(yy) == 'table' and is.ni(yy) then
+									for kk,vv in ipairs(yy) do
+										local ind = table.index(eval.group["_d_"], vv)
+										table.remove(eval.group["_d_"], ind) 
+									end
+								elseif type(yy) == 'string' then
+									local ind = table.index(eval.group["_d_"], yy)
+									table.remove(eval.group["_d_"], ind) 
+								end
+							elseif is.value(xx, table.keys(eval.group)) then
+								if type(yy) == 'table' and is.ni(yy) then
+									for kk,vv in ipairs(yy) do
+										local ind = table.index(eval.group[xx], vv)
+										table.remove(eval.group[xx], ind) 
+									end
+								elseif type(yy) == 'string' then
+									local ind = table.index(eval.group[xx], yy)
+									table.remove(eval.group[xx], ind) 
+								end
+							else
+								die.xerror({
+									fn = "E.links",
+									msg = "Group name '" .. xx .. "' does"
+								.. " not exist at %f."
+							})
+							end
+						end
 					end,
 				},
 
+            ------------------------------------------------------
+            -- alias 
+				--
+				-- accepts: atable
+            --
+            -- Set alternate text for links.  By default, the 
+				-- resource name is the text that will show up 
+				-- hyperlinked.
+            ------------------------------------------------------
 				alias = { 
 					datatypes = "atable", 
-					_atable = function () 
+					_atable = function (x)
+						for xx,yy in pairs(x) do
+							-- If yy is string
+							if type(yy) == 'string' then
+								href.alias._d_[xx] = yy 
+							-- If yy is table
+							elseif type(yy) == 'table' then
+								if not href.alias[xx] then
+									href.alias[xx] = {}
+								end
+								for kk,vv in pairs(yy) do
+									href.alias[xx][kk] = vv
+								end
+							end
+						end
 					end,
 				},
 			}
@@ -498,6 +642,7 @@ return {
 						-- Must be numerically indexed.	
 						if type(xx) == 'string'
 						then
+							-- die.xval_in_table(msg, table)
 							die.xerror({ fn = "E.links",
 								msg = "Table supplied at index [group] in %f " ..
 									"must be a numerically indexed table."
@@ -550,7 +695,7 @@ return {
          ------------------------------------------------------
 			local aa = {}
 			for xxnn,v in ipairs({
-				"class", "url_root", "id","string" -- ,"subvert","alias"	
+				"class", "url_root", "id","string","alias","subvert"	
 			})
 			do
 				if t[v] then
@@ -562,7 +707,6 @@ return {
 			-- Run through logic here for different payload
 			-- formats.
          ------------------------------------------------------
-
 			local links = {}
 			for __,link_group in ipairs(groupnames) -- href.group[href.group] )
 			do
@@ -604,9 +748,13 @@ return {
 						-- Close the opening tag.
 						">",
 						-- Resource name or alias.
-				--		href.alias[link_group][link_value] or link_value, 
-						-- Resource name only.
-						link_value, 
+						(function ()
+							if href.alias[link_group] then
+								return href.alias[link_group][link_value] or link_value
+							else
+								return link_value
+							end
+						end)(),
 						-- Close the entire tag.
 						"</a>\n"
 					}))	
@@ -664,80 +812,42 @@ return {
 	-- *nil
 	------------------------------------------------------
 	xhr = function (t)
+		-- Set a function name for errors.
 		local fname = "E.xhr"
-		
+	
+		-- Pull everything out of t and start processing XHR logic.
 		if t then
 			------------------------------------------------------
-			-- Start the Javascript dump.
+			-- Start off a Javascript string.
 			------------------------------------------------------
 			table.insert(xhr.js, '<script type="text/javascript">')
-
-			-- These will probably be moved to js or something
-			------------------------------------------------------
-			-- arrayify(t, name)
-			--
-			-- Store in [name] all elements in [t].  Otherwise
-			-- return string representation of Javascript array.
-			-- *string
-			------------------------------------------------------
-			local function arrayify( t, name ) 
-				fname = "arrayify"
-				local js, js_str = {}, ""
-
-				if name then
-					js_str = "var " .. name .. " = [" 
-				else
-					js_str = "["
-				end
-				for _,v in ipairs(t) do
-					if type(v) ~= "string" then
-						die.xerror({
-							fn = fname,
-							msg = "local %f expects strings"
-							 .. " within supplied table."
-						})
-					end 
-					table.insert(js, "'" .. v .. "'")
-				end 
-
-				return table.concat( {js_str, table.concat(js,","), "];"} )
-			end
 			
 			------------------------------------------------------
-			-- objectify(t, name)
-			-- 
-			-- Store in [name] all elements in [t].  Otherwise
-			-- return string representation of Javascript object.
-			-- Turn a table into a js object.
-			------------------------------------------------------
-			local function objectify( t, name ) 
-				fname = "objectify"
-				local js, js_str = {}, ""
-				
-				if name then
-					js_str = "var " .. name .. " = {" 
-				else
-					js_str = "{"
-				end
-				
-				for k,v in pairs(t) do
-					if type(v) ~= "string" then
-						die.xerror({
-							fn = fname,
-							msg = "local %f expects strings within supplied table."
-						})
-					end 
-					table.insert(js, table.concat({k, ": ", "'", v, "'"}))
-				end 
-
-				return table.concat( {js_str, table.concat(js,","), "};"} )
-			end
-			
-			
-			------------------------------------------------------
-			-- Set up all the datatypes.
+			-- Logic for all the accepted datatypes.
 			------------------------------------------------------
 			local validation = {
+				------------------------------------------------------
+				-- validation.autobind {} 
+				--
+				-- This table is intended to be used with the interface
+				-- function 'shuffle'.  
+				--
+				-- If supplied by the developer, autobind will accept
+				-- datatypes of alpha table and string.  If it is an
+				-- alpha table; the table's keys can corresponds to 
+				-- either an ID in the DOM or a symbolic name specified
+				-- at [?](symbol or E.autobind). 
+				--
+				-- If the matching value for the key is a numerically 
+				-- indexed table, then each value in that table is 
+				-- expected to be a resource called in E.set(). If the
+				-- value is an alphanumerically indexed table, then 
+				-- each value's key should point to a group, while
+				-- the value's value should point to that group's
+				-- resources.
+				--
+				-- *nil
+				------------------------------------------------------
 				autobind = {
 					datatypes = { "atable", "string" },
 					_atable = function (x)
@@ -810,13 +920,25 @@ return {
 					if t[n] then
 						shuffle(validation, t[n], n, fname)
 					end
+
+					local masquerade = "xhrkirk__"  -- Any old name will do...
+					eval.group[masquerade] = eval.group._d_
+					eval.execution[masquerade] = eval.execution._d_
 				end
 			end
 
-			-- Generate the JS.
+			-- Either before or after the JS generation, create the
+			-- masquerading resource.  Must match the current URL level.
+			-- Can modify pg.default.page if the resource is in a certain spot.  
+			-- But would it matter at all if the resource were higher up?
+			-- Check data.url maxn to make sure that the table isn't bigger than it needs to be...
+
+			die.quick(table.dump(eval.group))
+			-- Generate the JS
 			table.insert(xhr.js, arrayify( table.values(xhr.resources), "__RESOURCES__" ))
 			table.insert(xhr.js, objectify( xhr.location, "__LOCATION__" ))
 			table.insert(xhr.js, objectify( xhr.mapping, "__MAPPING__" ))
+			table.insert(xhr.js, objectify( xhr.masquerade, "__MASQUERADE__" ))
 
 			-- Dump the Javascript.
 			xhr.status = true
