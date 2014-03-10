@@ -147,6 +147,16 @@ local gcreate = function (name, t)
 end
 
 ------------------------------------------------------
+-- local gduplicate(g,n) 
+--
+-- ... 
+------------------------------------------------------
+local gclone = function(g, n)
+	-- Clone a table. 
+	groups[n] = table.clone(groups[g])
+end
+
+------------------------------------------------------
 -- member {} 
 --
 -- Member functions. 
@@ -160,15 +170,6 @@ local gmember = {
 				 "resource name, a unique id and a group."
 			})
 		else
-			-- table.insert(groups[id]["members"], x)
-			--[[
-			die.quick({
-				type(groups[g]["members"]),
-				tostring(x),
-				tostring(u),
-				tostring(g),
-			})
-			--]]
 			groups[g]["members"][x] = u 
 		end
 	end,
@@ -196,6 +197,7 @@ end
 group.create = gcreate
 group.modify = gmodify
 group.member = gmember 
+group.clone = gclone 
 group.exists = gexists
 
 
@@ -388,9 +390,6 @@ local bound = {
 ------------------------------------------------------
 local bcreate = function ()
 	if t then
-		-- Create an XID and track the name.
-		-- local xid = lookup.add( t.name, xid )
-
 		-- Create a scaffold table for the new route.
 		-- local new_bound = table.clone(bound)
 		local scaffold = table.retrieve_non_matching({ 
@@ -598,9 +597,7 @@ return {
 	-- *nil
 	------------------------------------------------------
 	default = function (...)
-		-- Die if term is not a string.
-		-- die.xtype(term, {"string", "table"}, "E.default")
-		-- Had no idea...
+		-- Parse arguments in a smart way.
 		local vararg = {...}
 		local varstr = false
 
@@ -1211,6 +1208,7 @@ return {
 	xhr = function (t)
 		-- Set a function name for errors.
 		local fname = "E.xhr"
+		local xhr_ns = "xhrkirk__"
 	
 		-- Pull everything out of t and start processing XHR logic.
 		if t then
@@ -1275,23 +1273,28 @@ return {
 					end,
 
 					_string  = function (x)
+						-- Create a bound.
+						-- Do some string checking to see whether or not the bound is 
+						-- an ID or class (or something totally different...)
+						bound.create({ dom_element = x })
+
+						-- Copy all resources into the fake group.
+						group.clone( default, xhr_ns .. default )
+						
 						-- One "sink" is going to get all your resources.   
 						-- Don't care from where.
-						xhr.location[ uuid.alpha(4) ] = x
+						for __,member_name in ipairs(groups[xhr_ns .. default]["members"]) do
+							local rxid = routes[route.named( member_name, xhr_ns .. default )]
+							if rxid then
+							end
+							xhr.location[ uuid.alpha(4) ] = x
+						end
 						
 						-- You need to set ALL the classes here.
 						table.insert(xhr.resources, x)
 					end,
 				},
 			}
-
-			-- Clone your defaults.
-			--[[
-			local original = {
-				xmlhttp = table.clone(xmlhttp),
-				settings = table.clone(xmlhttp_settings),
-			}
-			--]]
 
 			-- Extract settings.
 			local settings = table.retrieve(table.keys(xmlhttp_settings), t)
