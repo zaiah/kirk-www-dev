@@ -193,7 +193,7 @@ local is = {
 	------------------------------------------------------
 	["ni"] = function (t)
 		local status = false
-		if t and t[table.maxn(t)]
+		if t and type(t) == 'table' and t[table.maxn(t)]
 		then
 			status = true
 		end
@@ -238,10 +238,8 @@ local is = {
 	["value"] = function (tval,t,getIndex)
 		local status = false
 		local index
-		if t
-		then 
-			if t[table.maxn(t)]
-			then
+		if t and type(t) == 'table' then
+			if is.ni(t) then
 				for ind,value in ipairs(t) do
 					if tval == value 
 					then

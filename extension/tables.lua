@@ -229,9 +229,12 @@ local t = {
 	------------------------------------------------------
 	-- .dump(t)
 	--
-	-- Dump a table in text format.
+	-- Dump a table in text format.  A value of true for
+	-- include_newlines will include newlines.
+	--
+	-- *string
 	------------------------------------------------------
-	["dump"] = function (t)
+	["dump"] = function (t,include_newlines)
 		if t and type(t) == 'table' 
 		then
 			-- Stupid table.
@@ -253,7 +256,14 @@ local t = {
 			end
 
 			-- End the table.
-			return "{" .. table.concat(tt,", ") .. "}"
+			if not include_newlines then
+				return "{" .. table.concat(tt,", ") .. "}"
+			else
+				local tab = "&nbsp&nbsp&nbsp&nbsp&nbsp"
+				return "{".."<br />"..tab..
+					table.concat(tt,",<br />" .. tab)..
+				"<br />}"
+			end
 		end
 	end,
  

@@ -456,6 +456,7 @@ return {
 	-- *nil
    ------------------------------------------------------
 	quick = function (m)
+		if type(m) == 'table' then m = table.dump(m, true) end
 		die({
 			altstatus = "Debugging Message",
 			msg = m

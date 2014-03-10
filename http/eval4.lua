@@ -11,130 +11,57 @@
 --
 -- A table of different types. 
 ------------------------------------------------------
-local types = {}	-- Table of datatypes.
-local routes = {}	-- Table of routes.
-local groups = {} -- Table of groups.
-local bounds = {} -- Table of bounds.
+local types = {}						-- Table of datatypes.
+local routes = {}						-- Table of routes.
+local groups = {} 					-- Table of groups.
+local bounds = {} 					-- Table of bounds.
+local default = uuid.alnum(10) 	-- A default namespace.
 
 ------------------------------------------------------
--- route-types {} 
+-- lookup {} 
 --
--- List of route types. 
+-- Some stuff for name lookups. 
 ------------------------------------------------------
-types.route = {
-	autobound = { "string", "ntable", "atable" },
-	execution = "function",
-	include = "boolean",
-	name = "string",
-	alias = "string",
-	class = { "ntable", "string", "atable" },
-	id = { "boolean", "atable" },
-	pre = "function", 
-	post = "function", 
-	hover = { "string", "ntable", "atable" },
-	href = "string",
-	order = "number",
-	member_of = { "string", "ntable" },
-	xhr = {
-		req_type = "string",
-		preferred = "boolean",
-		pre = { "string", "function" },
-		post = { "string", "function" },
-		mask = "string",
-		show = "number",
-		hide = "number",
-		animate = "boolean",
-	}
-}
+local lookup = {names = {}, xids = {}}	-- Table of names.
+local lname = function (x) 
+	-- Find a name, there will be conflicts here.
+	if x then
+		-- If this doesn't exist, no error...
+		return lookup.names[ table.index( lookup.xids, x ) ]
+	end
+end
 
-------------------------------------------------------
--- route {} 
---
--- Table for routing handler.  This is imposed
--- on new members when creating a route.  Reference
--- its members with route[name][item]
-------------------------------------------------------
-local route = {			-- Group names can be unique so there is no trouble.
-	autobound = false,	-- Where is a payload bound to?
-	execution = false, 	-- Function content of a resource.
-	include = false, 		-- Include a file or not.
-	name = false,			-- The name of the route.
-	alias = false,   		-- An alias for this route.
-	class = false,			-- The class that should be used when presenting a route.
-	id = false,				-- Boolean indicating when items should have an ID tag or not.
-	pre = false,			-- Function to run before evaluating a resource.
-	post = false,			-- Funciton to run after evaluating a resource.
-	hover = false,			-- String or function to populate a CSS drop down window.
-	href = false,			-- hypertext reference of where the route should lead
-	order = false,			-- Number defining the order of interpreted links.
-	member_of = false,	-- String or table containing the group(s) that a route is associated with.
-	xhr = {
-		req_type = false,	-- HTTP method to use for XMLHttpRequests
-		preferred = false,-- Preference of XMLHttpRequest versus a regular server-side dump.
-		pre = false,		-- A Javascript function to run before serving the resource.
-		post = false,		-- A Javascript funciton to run after serving the resource.
-		mask = false,		-- The mask name of a "fake" group made to serve XHR.
-		show = false,		-- Number defining how fast a resource should be shown after injection.
-		hide = false,		-- Number defining how fast a resource should be hidden after dejection.
-		animate = false,	-- Turn on or turn off animation when injecting/dejecting autobound payloads.
-		name = false,		-- A unique name for the XHR field.
-	},
-	-- Could use some object oriented ness here.  This is a constructor.
-	create = function (t,g)					-- Create a new route.
-		local xid = uuid.alpha(5) 			-- Create some ID.
-		die.quick(type(route))
-		routes[xid] = table.set(route,t)	-- Also make a record of what it goes to.
-	end,
+local lxid = function (n) 	-- Find an xid.
+	if n then
+		-- If this doesn't exist in table, no error...
+		return lookup.xids[ table.index( lookup.names, n ) ]
+	end
+end
 
-	-- Update
-	update = function (t)
-		-- set key in t
-	end,
+local ladd = function (x) 	-- Add a new record.
+	local xid = uuid.alnum(6)
+	table.insert(lookup.names, x)
+	table.insert(lookup.xids, xid)
+	return xid
+end
 
-	-- Show names.
-	names = function ()
-		local route_names = {}	
-		for k,v in pairs(routes) do
-			route_names[v.name] = k 
-		end
-	end,
-}
-
-------------------------------------------------------
--- types.group{}
---
--- Group datatypes. 
-------------------------------------------------------
-types.group = {
-	name = "string",
-	url_root = "string",
-	fs_root = "string",
-	members = "ntable",
-	fail = {
-		level = "number",
-		message = {
-			[404] = "string",
-			[500] = "string",
-		},
-		handler = {
-			[404] = "string",
-			[500] = "string",
-		},
-		except = { "string", "ntable" }
-	}
-}
+lookup.name = lname
+lookup.xid = lxid
+lookup.add = ladd
 
 ------------------------------------------------------
 -- group {}
 --
--- Group datatypes. 
+-- Group scaffolding.. 
 ------------------------------------------------------
 local group = {
 	name = false,		-- Name of a particular group.
-	url_root = false,	-- When presenting links, this fragment will be prepended to the resource name or alias.
 	fs_root = false,	-- When serving resources, this fragment will tell Kirk where to find the file.
-	members = false,	-- A list of members that belong to this group.
+	members = {},		-- A list of members that belong to this group.
 	default = false,	-- A default resource for a group.
+	class = "",			-- The class to use on a group of resources.
+	string = false,	-- A custom string to use instead of auto-generation.
+	url_root = false,	-- When presenting links, this fragment will be prepended to the resource name or alias.
 	fail = {
 		level = false,	-- Fail at a different level from the one you're trying to serve.
 		message = {
@@ -148,74 +75,378 @@ local group = {
 		except = false,	-- Members in this list that do not exist in a current group will be allowed through.
 	},
 
-	create = function ()	-- Create a new group.
-		local xid = uuid.alpha(5) 			-- Create some ID.
-		routes[xid] = table.set(route,t)	-- Also make a record of what it goes to.
-	end,
+	names = {},
 
-	modify = function () -- Modify a created group.
-	end,
+	-- Types
+	types = {
+		name = "string",
+		url_root = "string",
+		fs_root = "string",
+		members = "ntable",
+		names = "atable",
+		fail = {
+			level = "number",
+			message = {
+				[404] = "string",
+				[500] = "string",
+			},
+			handler = {
+				[404] = "string",
+				[500] = "string",
+			},
+			except = { "string", "ntable" }
+		}
+	}
+}
 
-	-- Show names.
-	names = function ()
-		local group_names = {}	
-		for k,v in pairs(groups) do
-			group_names[v.name] = k 
+------------------------------------------------------
+-- local gcreate(t,g) 
+--
+-- Create a new group. 
+------------------------------------------------------
+local gcreate = function (name, t)
+	-- Create an ID.
+	local name = name or default	
+
+	-- Create the new group if it doesn't exist.
+	if not groups[name] then
+		groups[name] = {}
+
+		-- Create a scaffold table for the new route.
+		local new_group = table.clone(group)
+		local scaffold = table.retrieve_non_matching({ 
+			"create", 
+			"modify", 
+			"types", 
+			"member",
+			"exists",
+			"names" 
+		}, new_group)
+
+		-- Pull valid types and set.
+		-- Catch if the group doesn't exist?
+		if t and type(t) == 'table' then
+			for kk,vv in pairs(t) do
+				if t[kk] then
+					if type(vv) == group.types[kk] or type(vv) == 'table' 
+					 or is.value(type(vv), group.types[kk]) then
+						groups[name][kk] = vv 
+					-- else die.xerror( type of something is bad... )
+					end
+				end
+			end
+		end
+
+		-- Set a couple of defaults.
+		for kk,vv in pairs(scaffold) do
+			if not groups[name][kk] then
+				groups[name][kk] = vv 
+			end
+		end
+	end
+end
+
+------------------------------------------------------
+-- member {} 
+--
+-- Member functions. 
+------------------------------------------------------
+local gmember = {
+	add = function (x,u,g)
+		if not x or not u or not g then
+			die.xerror({
+				fn = "group.member.add",
+				msg = "%f requires three arguments denoting the " .. 
+				 "resource name, a unique id and a group."
+			})
+		else
+			-- table.insert(groups[id]["members"], x)
+			--[[
+			die.quick({
+				type(groups[g]["members"]),
+				tostring(x),
+				tostring(u),
+				tostring(g),
+			})
+			--]]
+			groups[g]["members"][x] = u 
 		end
 	end,
+
+	remove = function (x,g) 
+		local id = g or default
+		groups[id]["members"][x] = nil 
+	end,
+
+	list = function (g)
+		local id = g or default
+		table.concat( groups[id]["members"])
+	end,
 }
+
+------------------------------------------------------
+-- exists 
+--
+-- Does a group exist? 
+------------------------------------------------------
+local gexists = function (n)
+	if groups[n] then return true else return false end
+end
+
+group.create = gcreate
+group.modify = gmodify
+group.member = gmember 
+group.exists = gexists
+
+
+------------------------------------------------------
+-- route {} 
+--
+-- Table for routing handler.  This is imposed
+-- on new members when creating a route.  Reference
+-- its members with route[name][item]
+------------------------------------------------------
+local route = {			-- Group names can be unique so there is no trouble.
+	autobound = false,	-- Where is a payload bound to?
+	execution = false, 	-- Function content of a resource.
+	include = false,		-- Include a file or not.
+	name = false,			-- The name of the route.
+	alias = false,   		-- An alias for this route.
+	id = false,				-- Boolean indicating when items should have an ID tag or not.
+	hover = false,			-- String or function to populate a CSS drop down window.
+	href = false,			-- hypertext reference of where the route should lead
+	order = false,			-- Number defining the order of interpreted links.
+	member_of = {},		-- String or table containing the group(s) that a route is associated with.
+	xhr = {
+		req_type = false,	-- HTTP method to use for XMLHttpRequests
+		preferred = false,-- Preference of XMLHttpRequest versus a regular server-side dump.
+		pre = false,		-- A Javascript function to run before serving the resource.
+		post = false,		-- A Javascript funciton to run after serving the resource.
+		mask = false,		-- The mask name of a "fake" group made to serve XHR.
+		show = false,		-- Number defining how fast a resource should be shown after injection.
+		hide = false,		-- Number defining how fast a resource should be hidden after dejection.
+		animate = false,	-- Turn on or turn off animation when injecting/dejecting autobound payloads.
+		name = false,		-- A unique name for the XHR field.
+	},
+
+	-- All types.
+	types = {
+		autobound = { "string", "ntable", "atable" },
+		execution = "function",
+		include = "string",
+		name = "string",
+		alias = "string",
+		class = { "ntable", "string", "atable" },
+		id = { "boolean", "atable" },
+		pre = "function", 
+		post = "function", 
+		hover = { "string", "ntable", "atable" },
+		href = "string",
+		order = "number",
+		member_of = { "string", "ntable" },
+		xhr = {
+			req_type = "string",
+			preferred = "boolean",
+			pre = { "string", "function" },
+			post = { "string", "function" },
+			mask = "string",
+			show = "number",
+			hide = "number",
+			animate = "boolean",
+		}
+	}
+}
+
+------------------------------------------------------
+-- local rcreate(t,g) 
+--
+-- Creates a new route.
+------------------------------------------------------
+local rcreate = function (t, return_xid)
+	if t then
+		-- Create an XID and track the name.
+		local xid = lookup.add( t.name, xid )
+
+		-- Create a scaffold table for the new route.
+		local new_route = table.clone(route)
+		local scaffold = table.retrieve_non_matching({ 
+			"create", 
+			"modify", 
+			"names",
+			"types", 
+			"named", 
+			"xid"
+		}, new_route)
+
+		-- Create a new table for the route in question.
+		routes[xid] = {}
+
+		-- Pull valid types from t and set.
+		for kk,vv in pairs(t) do
+			if t[kk] then
+				if type(vv) == route.types[kk] or type(vv) == 'table' 
+				 or is.value(type(vv), route.types[kk]) then
+					routes[xid][kk] = vv 
+				-- else die.xerror( type of something is bad... )
+				end
+			end
+		end
+
+		-- Set the rest of the defaults.
+		for kk,vv in pairs(scaffold) do
+			if not routes[xid][kk] then
+				routes[xid][kk] = vv 
+			end
+		end
+
+		-- Assign a group.
+		local gid = t.group or default 
+		group.member.add( t.name, xid, gid )
+		table.insert(routes[xid]["member_of"], gid)
+
+		-- Return that handle or not.
+		if return_xid then return xid end
+
+	-- Routes need some data.
+	else
+		die.xerror({
+			fn = "route.create",
+			msg = "Cannot create a new route without at least a name."
+		})
+	end
+end
+
+------------------------------------------------------
+-- rnamed(name, g) 
+--
+-- Retrieve a resource named 'name' in a group g. 
+------------------------------------------------------
+local rnamed = function (name, g)
+	local group = g or default
+	if name then
+		return groups[group]["members"][name]
+	end
+end
+
+------------------------------------------------------
+-- rmodify() 
+--
+-- Update routes.
+------------------------------------------------------
+local rmodify = function (t)
+	local xid 
+	if t.where then
+		xid = rnamed(t.where[1], t.where[2])
+		t.where = nil
+
+	-- Allow direct supply of the name or lookup by
+	-- group and name.
+	elseif t.xid then
+		xid = t.xid  -- or rnamed(t.name) 
+	end
+
+	-- Catch if the group doesn't exist?
+	for kk,vv in pairs(t) do
+		if t[kk] then
+			if type(vv) == route.types[kk] or type(vv) == 'table' 
+			 or is.value(type(vv), route.types[kk]) then
+				routes[xid][kk] = vv 
+			-- else die.xerror( type of something is bad... )
+			end
+		end
+	end
+end
+
+route.create = rcreate
+route.modify = rmodify
+route.named = rnamed 
+
 
 ------------------------------------------------------
 -- bounds {} 
 --
 -- Table for different DOM markers. 
 ------------------------------------------------------
-types.bound = {
-	hide = false,
-	show = false,
-}
-
 local bound = {
-	hide = false,
-	show = false,
+	dom_element = false,		-- A spot on the DOM.
+	animate = false,			-- Should this particular bound be animated?
+	hide = false,				-- The hide speed for this bound.
+	show = false,				-- The show speed for this bound.
+	listen = false,			-- Should this bound be listening for anything.
+	types = {
+		dom_element = "string",	
+		animate = "boolean",		
+		hide = "number",
+		show = "number",
+	}
 }
 
-
 ------------------------------------------------------
--- href {}
+-- bcreate() 
 --
--- Table to hold all hypertext reference formatting
--- data.
+-- Create a new bound. 
 ------------------------------------------------------
-local href = {
-   as      	=  "string" ,				-- Define how links should be returned.
-   url_root = { ["_d_"] = "/" },		-- Relative path for links.
-   class   	= { ["_d_"] = ""	},  	-- Use a class with generated links.
-   id      	= { ["_d_"] = false },  -- Use ID's with generated links.
-   string  	= { ["_d_"] = "" },		-- Use a custom string for generating links.
-   subvert 	= { ["_d_"] = {} },		-- Table for subverted stuff.
-   group   	= { ["_d_"] = {} },		-- A group name or names.  Default.
-   alias   	= { ["_d_"] = {} },     -- Set an alias.
-}
+local bcreate = function ()
+	if t then
+		-- Create an XID and track the name.
+		-- local xid = lookup.add( t.name, xid )
 
-------------------------------------------------------
--- fail
---
--- level 	= [number]
---	The number of the portion of the url to fail at.
--- except 	= [string or table];	
--- If catching a request matching any resources in this table, don't fail.
--- message	= [string]
--- Replace the usual 404 error message with this.
--- handler	= [string]
--- Replace Kirk's 404 handler with a custom one. Must always start with a slash.
-------------------------------------------------------
-local fail = {
-	level = {},								-- If failing, use this as a guide for when.
-	except = { ["_d_"] = false },		-- Do not fail at receipt of these resources.
-	message = { ["_d_"] = false },	-- Define a different message, w/ no handler. 
-	handler = { ["_d_"] = false	},	-- Use a totally different handler.
-}
+		-- Create a scaffold table for the new route.
+		-- local new_bound = table.clone(bound)
+		local scaffold = table.retrieve_non_matching({ 
+			"create", 
+			"modify", 
+			"remove",
+			"types", 
+		}, table.clone(bound))
+
+		-- Create a new table for the route in question.
+		bounds[xid] = {}
+
+		-- Pull valid types from t and set.
+		for kk,vv in pairs(t) do
+			if t[kk] then
+				if type(vv) == bound.types[kk] or type(vv) == 'table' 
+				 or is.value(type(vv), bound.types[kk]) then
+					bounds[xid][kk] = vv 
+				-- else die.xerror( type of something is bad... )
+				end
+			end
+		end
+
+		-- Set the rest of the defaults.
+		for kk,vv in pairs(scaffold) do
+			if not bounds[xid][kk] then
+				bounds[xid][kk] = vv 
+			end
+		end
+
+		-- Assign a group.
+		-- local gid = t.group or default 
+		-- group.member.add( t.name, xid, gid )
+		-- table.insert(bounds[xid]["member_of"], gid)
+
+		-- Return that handle or not.
+		if return_xid then return xid end
+
+	-- Routes need some data.
+	else
+		die.xerror({
+			fn = "bound.create",
+			msg = "Cannot create a new bound without at least a name."
+		})
+	end
+end
+
+local bmodify = function ()
+end
+
+local bremove = function ()
+end
+
+bound.create = bcreate
+bound.modify = bmodify
+bound.remove = bremove
 
 ------------------------------------------------------
 -- xmlhttp {}
@@ -290,29 +521,6 @@ xhr = {
 }
 
 ------------------------------------------------------
--- eval {}
---
--- Table to hold elements used to evaluate the HTTP
--- request.
-------------------------------------------------------
-local eval = {
-	level 		= 1,              	-- Should automatically be 1. 
-	default     = { ["_d_"] = false },		-- ?
-	resources 	= false,					-- ?
-	done 			= false,			   	-- Change to true when eval_eval() is done. 
-	fs_root 		= "/",					-- Serve relative to here?
-	execution 	= {["_d_"] = {} },  	-- Store execution blocks. 
-	group 		= {["_d_"] = {} },	-- Set a place for resources.
-	href 			= {["_d_"] = {} },	-- Set a place for resources.
-	order 		= {"skel","html"},	-- Default order for finding files.
-	xmlhttp 		= {["_d_"] = {}},  	-- Which groups get XMLHttp requests?
-	
-	xhr = { ["_d_"] = {} },
-	xhr_names = {},  --
-	xhr_maps = {},   -- Unique names, but remember that resources may NOT be unique
-}
-
-------------------------------------------------------
 -- local arrayify(t, name)
 --
 -- Store in a Javascript array [name] all elements in [t].  
@@ -382,39 +590,41 @@ end
 -- Public functions for serving pages. 
 ------------------------------------------------------
 return {
-	test = function ()
-		route.create({ name = "tammy", id = true })
-		route.modify({ autobound = "#tobal"	})
-		die.quick( table.dump(routes[xid]) )
-	end,
-
+	-- test = require("http.eval-4-test-set")
 	------------------------------------------------------
 	-- .default( term )
 	--
 	-- Set a default for our frame.
 	-- *nil
 	------------------------------------------------------
-	default = function (term)
+	default = function (...)
 		-- Die if term is not a string.
-		die.xtype(term, {"string", "table"}, "E.default")
-		
-		-- Set a default resource
-		if type(term) == 'string' then
-			eval.default._d_ = term
+		-- die.xtype(term, {"string", "table"}, "E.default")
+		-- Had no idea...
+		local vararg = {...}
+		local varstr = false
 
-		elseif type(term) == 'table' then
---			die.quick(table.dump(term))
-			
-			for xx,yy in pairs(term) do
-				-- Specify a "global" default.
-				if type(xx) == 'number' then
-					eval.default._d_ = yy
-				-- Specify other defaults...
-				elseif type(xx) == 'string' then
-					eval.default[xx] = yy 
-				end
-			end
-		end
+		-- Set a default resource
+		for __,var in ipairs(vararg) do
+			if type(var) == 'string' and not varstr then
+				groups[default]["default"] = var 
+				varstr = true 
+
+			-- Set a default resource.
+			elseif type(var) == 'table' then
+				for xx,yy in pairs(var) do
+					-- Specify a "global" default.
+					if type(xx) == 'number' then
+						groups[default]["default"] = yy
+					-- Specify other defaults...
+					elseif type(xx) == 'string' then
+						if group.exists(xx) then
+							groups[xx]["default"] = yy 
+						end
+					end
+				end -- for xx,yy in pairs(term)
+			end -- if type(term) == 'string'
+		end -- for __,var in ipairs(vararg) do
 	end,
 
 	------------------------------------------------------
@@ -423,6 +633,8 @@ return {
 	-- ...
 	------------------------------------------------------
 	run = function (level, f)
+		-- Should check if the default group exists.
+		
 		-- Die if f is not a function.
 		die.xtype(f, "function", "E.run")
 
@@ -449,6 +661,11 @@ return {
 		-- Die if t isn't a table.
 		die.xtype(t, "table", "E.set")
 
+		-- Create the default group if not done already.
+		if not group.exists( default ) then
+			group.create()
+		end
+
 		-- Iterate through t.
 		for k,v in pairs(t) do
 			-- 
@@ -458,18 +675,12 @@ return {
 					route.create({ name = k, execution = v })
 
 				elseif type(v) == 'string' then
-					route.create({ name = k, include = true })
-				--	table.insert(eval.group._d_, k)	-- Add the name only to eval.group
-				--	eval.execution._d_[k] = v		-- Reference function v with k
+					route.create({ name = k, include = v })
 
 				-- Evaluate the differences in tables.
 				elseif type(v) == 'table' then
 					-- Create a group.
-					group.create({ name = k, })	
-					-- Create a new link group for this key.
-					-- eval.group[k] = {} 		
-					-- Create a new execution block for this key. 
-					-- eval.execution[k] = {}	
+					group.create(k)
 
 					-- Cycle through the values in the group's table. 
 					for kk,vv in pairs(v)
@@ -477,26 +688,9 @@ return {
 						if type(kk) == 'string'
 						then
 							if type(vv) == 'string' then
-								route.create({ name = kk, execution = vv, member_of = k })
-								-- Add this string to the new group. 
-								-- table.insert(eval.group[k], kk)
-								-- eval.execution[k][kk] = vv
+								route.create({ name = kk, include = vv, group = k })
 							elseif type(vv) == 'function' then
-								-- route.create({ name = kk, include = true })
-								route.create({ name = kk, include = true, member_of = k })
-
-							elseif type(kk) == 'number'
-							then
-								-- v must always be a string, or bad shit will happen.
-								if type(vv) == 'string'
-								then
-									table.insert(eval.group[k], vv)
-								else
-									die({fn = "E.set", tn = "string", 
-										msg = "Expected %t at index ["..kk.."] at " .. 
-										"index ["..k.."] in %f."})
-								end
-						
+								route.create({ name = kk, execution = vv, group = k })
 							elseif type(vv) == 'table'
 							then
 								die.xerror({
@@ -520,13 +714,14 @@ return {
 						elseif type(kk) == 'number'
 						then
 							-- v must always be a string, or bad shit will happen.
-							if type(vv) == 'string'
-							then
+							if type(vv) == 'string' then
 								-- Add this string to a default group. 
-								table.insert(eval.group[k], vv)
+								route.create({ name = vv, include = vv, group = k })
 							else
-								die({fn = "E.set", tn = "string", 
-									msg = "Expected %t at index ["..k.."] at %f."})
+								die.xerror({
+									fn = "E.set", tn = "string", 
+									msg = "Expected %t at index ["..k.."] at %f."
+								})
 							end
 
 						else
@@ -542,7 +737,10 @@ return {
 						end
 					end
 				else
-					die({ fn = "E.set", msg = "Expected %o at index ["..k.."] in %f." })
+					die.xerror({ 
+						fn = "E.set", 
+						msg = "Expected %o at index ["..k.."] in %f." 
+					})
 				end
 
 			-- Evaluate numbers.
@@ -551,11 +749,13 @@ return {
 				-- v must always be a string, or bad shit will happen.
 				if type(v) == 'string'
 				then
-					-- Add this string to a default group. 
-					table.insert(eval.group._d_, v)
+					-- Add this route to the default group.
+					route.create({ name = v, include = v })
 				else
-					die({fn = "E.set", tn = "string", 
-						msg = "Expected type string at index ["..k.."] at %f. Got %t."})
+					die.xerror({
+						fn = "E.set", tn = "string", 
+						msg = "Expected type string at index ["..k.."] at %f. Got %t."
+					})
 				end
 			end
 		end
@@ -587,11 +787,8 @@ return {
 	-- *nil
 	------------------------------------------------------
 	links = function (t)
-		-- Create a blank table.
-		local tt = {}
-
-		-- Copy defaults
-		local defaults = table.clone(href) 
+		-- Create a blank table and some giant string.
+		local tt, linkstr = {}, ""
 
 		------------------------------------------------------
 		-- If [t] is blank, then output the links 
@@ -599,42 +796,56 @@ return {
 		------------------------------------------------------
 		if not t then
 			-- Shut down if E.set() was not called yet.
-			die.xempty(eval.group._d_)
-			--[[
-			if not eval.group._d_ then
-		--		die.xerror({ fn = "E.links", msg = "E.set
-			end
-			--]]
-			
-			-- Output a very simple link list.
-			for k,v in pairs( eval.group._d_ ) do
-				linkstr = string.gsub('<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', tostring(v))
-				table.insert(tt, linkstr)
+			if not groups[default] then
+				die.xerror({ 
+					fn = "E.links", 
+					msg = "<b>function</b> <i>E.set()</i> "..
+					"has not been used to initialize any routing logic for %f."
+				})
 			end
 
-			-- Return the links.
-			return table.concat(tt)
-
-		------------------------------------------------------
-		-- If [t] is a string, then output the links for the 
-		-- group represented by that string. Dying with an 
-		-- error if that group does not exist.
-		------------------------------------------------------
-		elseif type(t) == 'string'
-		then
-			-- Shut down if the group asked for does not exist.
-			die.xnil(eval.group[t])
-			
 			-- Output a very simple link list.
-			for k,v in ipairs( eval.group[t] )
-			do
-				linkstr = string.gsub(
-					'<a href="' .. href.url_root._d_ .. '%s">%s</a>', '%%s', v)
+			for k,v in pairs( groups[default]["members"] ) do
+				linkstr = string.gsub('<a href="/%s">%s</a>', '%%s', tostring(k))
 				table.insert(tt, linkstr) 
 			end
 
 			-- Return the links.
 			return table.concat(tt)
+
+		------------------------------------------------------
+		-- If [t] is a string, then output the links with a 
+		-- url_root represented by that string. 
+		-- error if that group does not exist.
+		------------------------------------------------------
+		elseif type(t) == 'string'
+		then
+			-- Does this group exist?
+			-- If support different failure modes is built in, 
+			-- it would come in handy right here.
+			if group.exists(t) then
+				-- Output a very simple link list.
+				for k,v in pairs( groups[t]["members"] )
+				do
+					if type(k) == 'number' then
+						if type(v) == 'string' then
+							linkstr = string.gsub('<a href="/%s">%s</a>','%%s',tostring(v))
+							table.insert(tt, linkstr) 
+						else
+							die.xerror({ fn = "E.set",
+								msg = "Expected string at %f at index ["..k.."] at "..
+								"index ["..t.."]"
+							})
+						end
+					else
+						linkstr = string.gsub('<a href="/%s">%s</a>', '%%s', tostring(k))
+						table.insert(tt, linkstr) 
+					end
+				end
+
+				-- Return the links.
+				return table.concat(tt)
+			end
 
 		------------------------------------------------------
 		-- If [t] is a table, then you'll be handling more 
@@ -648,16 +859,23 @@ return {
 				class = { 
 					datatypes = { "string", "atable", "ntable" }, 
 					_string = function (x)
-						href.class["_d_"] = x
+						groups[default]["class"] = x
 						return false
 					end,
 					_atable = function (x)
 						for xx,yy in pairs(x) do
-							if is.value(xx, table.keys(eval.group)) then
-								if type(yy) == 'table' and is.ni(yy) then
-									href.class[xx] = table.concat(yy," ")
+							if group.exists(xx) then
+								if type(yy) == 'table' then 
+									if is.ni(yy) then
+										groups[xx]["class"] = table.concat(yy," ")
+									else
+										die.xerror({
+											fn = "E.links",
+											msg = "Cannot support named tables at index [class]" 
+										})
+									end
 								elseif type(yy) == 'string' then
-									href.class[xx] = yy
+									groups[xx]["class"] = yy
 								end
 							end
 						end	
@@ -665,7 +883,12 @@ return {
 					end,
 					_ntable = function (x) -- Are the typechecks done here?
 						if is.ni(x) then
-							href[v]["_d_"] = table.concat(x," ")
+							groups[default]["class"] = table.concat(x," ")
+						else
+							die.xerror({
+								fn = "E.links",
+								msg = "Cannot support named tables at index [class]" 
+							})
 						end
 						return false 
 					end,
@@ -674,12 +897,14 @@ return {
 				url_root = { 
 					datatypes = { "string", "atable" },
 					_string = function (x)
-						href.url_root["_d_"] = x
+						groups[default]["url_root"] = x
+						return false
 					end,
 					_atable = function (x) 
 						for xx,yy in pairs(x) do
-							if is.value(xx, table.keys(eval.group)) then
-								href.url_root[xx] = yy 
+							if group.exists(xx) then
+								groups[xx]["url_root"] = yy 
+							-- Another spot for strict errors.
 							end
 						end
 					end,
@@ -688,13 +913,13 @@ return {
 				id = { 
 					datatypes = { "atable", "boolean" },
 					_boolean = function (x) 
-						href.id["_d_"] = x 
+						groups[xx]["id"] = x
 					end,
 					_atable = function (x)
 						for xx,yy in pairs(x) do
-							if is.value(xx, table.keys(eval.group)) then
+							if group.exists(xx) then
 								if type(yy) == "boolean" then
-									href.id[xx] = yy 
+									groups[xx]["id"] = x
 								end
 							end
 						end
@@ -704,12 +929,12 @@ return {
 				string = { 
 					datatypes = { "string", "atable" },
 					_string = function (x)
-						href.string["_d_"] = x 
+						groups[default]["string"] = x 
 					end,
 					_atable = function (x) 
 						for xx,yy in pairs(x) do
-							if is.value(xx, table.keys(eval.group)) then
-								href.string[xx] = yy 
+							if groups.exists(xx) then 
+								groups[xx]["string"] = yy 
 							end
 						end
 					end,
@@ -729,13 +954,11 @@ return {
 				subvert = { 
 					datatypes = { "string", "atable", "ntable" }, 
 					_string = function (x)
-						local ind = table.index(eval.group["_d_"], x)
-						table.remove(eval.group["_d_"], ind) 
+						group.remove(x, default)
 					end,
 					_ntable = function (x) 
 						for xx,yy in ipairs(x) do
-							local ind = table.index(eval.group["_d_"], yy)
-							table.remove(eval.group["_d_"], ind) 
+							group.remove(yy, default)
 						end
 					end,
 					_atable = function (x) 
@@ -743,22 +966,18 @@ return {
 							if type(xx) == 'number' then
 								if type(yy) == 'table' and is.ni(yy) then
 									for kk,vv in ipairs(yy) do
-										local ind = table.index(eval.group["_d_"], vv)
-										table.remove(eval.group["_d_"], ind) 
+										group.remove(vv, default)
 									end
 								elseif type(yy) == 'string' then
-									local ind = table.index(eval.group["_d_"], yy)
-									table.remove(eval.group["_d_"], ind) 
+									group.remove(yy, default)
 								end
-							elseif is.value(xx, table.keys(eval.group)) then
+							elseif type(xx) == 'string' and group.exists(xx) then 
 								if type(yy) == 'table' and is.ni(yy) then
 									for kk,vv in ipairs(yy) do
-										local ind = table.index(eval.group[xx], vv)
-										table.remove(eval.group[xx], ind) 
+										group.remove(vv, default)
 									end
 								elseif type(yy) == 'string' then
-									local ind = table.index(eval.group[xx], yy)
-									table.remove(eval.group[xx], ind) 
+									group.remove(yy, default)
 								end
 							else
 								die.xerror({
@@ -786,14 +1005,19 @@ return {
 						for xx,yy in pairs(x) do
 							-- If yy is string
 							if type(yy) == 'string' then
-								href.alias._d_[xx] = yy 
+								local xid = route.named(xx,default)
+								if xid then 
+									routes[xid]["alias"] = yy
+								end
 							-- If yy is table
 							elseif type(yy) == 'table' then
-								if not href.alias[xx] then
-									href.alias[xx] = {}
-								end
 								for kk,vv in pairs(yy) do
-									href.alias[xx][kk] = vv
+									if group.exists(xx) then
+										local xid = route.named(kk,xx)
+										if xid then 
+											routes[xid]["alias"] = vv 
+										end
+									end
 								end
 							end
 						end
@@ -804,7 +1028,10 @@ return {
 			------------------------------------------------------
 			-- Get the keys from [t]
 			------------------------------------------------------
-			t = table.retrieve(table.keys(href), t)
+			t = table.retrieve(table.union(
+				table.keys(validation),
+				{ "group" }	
+			), t)
 
 			------------------------------------------------------
 			-- Check if the group exists, and set something for
@@ -843,12 +1070,12 @@ return {
 							die.xerror({
 								fn = "E.links", tn = type( yy ),
 								msg = "Argument at index ["..xx.."] at index " ..
-								"[group] in %f is of incorrect %t."
+								"[group] in %f is %t not <b>type</b> <i>string</i> as expected."
 							})
 						end
 
 						-- Die if the group does not exist.
-						if not is.key(yy, eval.group)
+						if not group.exists(xx)
 						then
 							die.xerror({
 								fn = "E.links",
@@ -861,8 +1088,7 @@ return {
 					groupnames = t.group -- or eval.group
 				-- Check if the string is actually a group member.
 				else
-					if not is.key(t.group, eval.group)
-					then
+					if not group.exists(t.group) then
 						die.xerror({
 							fn = "E.links",
 							msg = "Group name '" .. t.group .. "' does not "
@@ -873,7 +1099,7 @@ return {
 					groupnames = { t.group } -- or eval.group
 				end
 			else
-				groupnames = { "_d_" }
+				groupnames = { default }
 			end -- if t and t.group
 
          ------------------------------------------------------
@@ -882,7 +1108,7 @@ return {
          ------------------------------------------------------
 			local aa = {}
 			for xxnn,v in ipairs({
-				"class", "url_root", "id","string","alias","subvert"	
+				"class", "url_root", "id", "string","alias","subvert"	
 			})
 			do
 				if t[v] then
@@ -909,51 +1135,46 @@ return {
 
 				-- Move through the rest.
 				else
-					for __,link_value in ipairs(eval.group[link_group])
-					do
-					table.insert(links, table.concat({
-						-- Start the tag.
-						'<a href=', 
-						-- Relative root.
-						'"' .. tostring(href.url_root[link_group] or href.url_root._d_), 
-						-- Resource name.
-						link_value .. '"',   
-						-- Class Name.
-						(function ()
-							-- local xhr_name = string.append(xhr.resources[link_value], " ") 
-							return string.set(table.concat({
-								string.append(xhr.resources[link_value], " "), 
-								href.class[link_group] or href.class._d_
-							}), " class")
-						end)(),
-						-- ID name
-						(function ()
-							if href.id[link_group] or href.id._d_ then
-								return string.set(link_value, " id")
-							else return "" end
-						end)(),
-						-- Close the opening tag.
-						">",
-						-- Resource name or alias.
-						(function ()
-							if href.alias[link_group] then
-								return href.alias[link_group][link_value] or link_value
-							else
-								return link_value
-							end
-						end)(),
-						-- Close the entire tag.
-						"</a>\n"
-					}))	
+					local g = groups[link_group]
+					for ltit, lxid in pairs(g.members) do
+						local x = routes[lxid]
+						table.insert(links, table.concat({
+							-- Start the tag.
+							'<a href=', 
+							-- Relative root and resource name.
+							'"', tostring(g.url_root), ltit, '"', 
+							-- Class Name.
+							(function ()
+								local xhr_name = string.append(xhr.resources[ltit], " ") 
+								return string.set(table.concat({
+									string.append(xhr.resources[ltit], " "), 
+									g.class -- ) 
+								}), " class")
+							end)(),
+							-- ID name
+							(function ()
+								if g.id then
+									return string.set(ltit, " id")
+								else 
+									return "" 
+								end
+							end)(),
+							-- Close the opening tag.
+							">",
+							-- Resource name or alias.
+							x.alias or ltit,
+							-- Close the entire tag.
+							"</a>\n"
+						}))	
 					end -- for __,link_value in ipairs(eval.group[link_group])
 				end -- if t and t.string and t.string[link_group]
 			end -- for __,link_group in ipairs(group)
 
 			-- Reset to defaults, letting another link chain do work if specified.
-			href = defaults
+			-- ??
 			
 			-- Return link list to environment.
-			return link_list or table.concat(links,"\n")
+			return table.concat(links,"\n")
 	
 		-- Catch bad arguments to E.links()
 		else
@@ -961,17 +1182,6 @@ return {
 		end -- if not t 
 	end,
 
-	------------------------------------------------------
-	-- .include(n, name)
-	--
-	-- Include resource at [n] as name.  Similar to 
-	-- redefining pg.pages.
-	--
-	-- *nil
-	------------------------------------------------------
-	include = function (n, name)
-	end,
-	
 	------------------------------------------------------
 	-- .xhr()
 	--
@@ -1198,12 +1408,25 @@ return {
 		local function srv_req( req, group_sel )
 			-- Define some starter details.
 			local payload
-			local group = group_sel or "_d_"
-			local req = req or eval.default[group]
-			local gt = table.keys(table.retrieve_non_matching({"_d_"},eval.group))
+			local groupn = group_sel or default
+			local g = groups[groupn] 
+
+			-- Better check if alternate groups exist first.
+			if not g then
+				die.xerror({
+					fn = "E.serve",
+					msg = "The group ["..tostring(groupn).."] does not exist at %f."
+				})
+			end
+
+			-- Set defaults and stuff.
+			local req = req or g["default"] 
+			local gt = table.keys(
+				table.retrieve_non_matching({default}, groups)
+			)
 
 			-- Die if grouped resoures were selected.
-			if not eval.default._d_ and gt and table.maxn(gt) > 0 then
+			if not groups[default] and gt and table.maxn(gt) > 0 then
 				if not group_sel then
 					die.xerror({
 						fn = "E.serve", -- ifn links to internal functions
@@ -1215,12 +1438,12 @@ return {
 			end
 
 			-- Die on no default.
-			if not eval.default[group] then
-				if group == '_d_' then
+			if not g.default then
+				if groupn == default then
 					die.xerror({
 						fn = "E.serve",
-						msg = "No default payload mapped to resource "..
-						tostring(req).." at %f."
+						msg = "No default payloads mapped for the "..
+						" default group at %f."
 					})
 				else
 					die.xerror({
@@ -1231,40 +1454,34 @@ return {
 				end
 			end
 
-			-- Die if the group doesn't exist.
-			if group_sel and not is.value(group_sel, table.keys(eval.group)) then
-				die.xerror({
-					fn = "E.serve",
-					msg = "No default payload mapped to resource "..
-				 	tostring(int).." at %f."
-				})
-			end
-			
 			-- 404 or proceed if the name isn't a listed resource.
-			if not is.value(req, eval.group[group]) then
-				if fail.level[int] then
-					-- Throw auto 404
-					if fail.group[group] and not is.value(req, fail.except[group]) then
-						die.with(404, {msg = "Cannot find page: " .. req .. "."})
-					end
+			-- die.quick(groups[groupn])
+			local rxid = routes[route.named(req, groupn)]
+			if not rxid then
+				-- Fail with a 404.
+				if g.fail.level and not is.value(req, g.fail.except) then
+					die.with(404, {
+						msg = "Cannot find page: " .. req .. "."
+					})
+				-- If not, just use the default resource.
 				else
+					rxid = routes[route.named(g.default, groupn)]
 				end
 			end
 
-			-- Can set order from E.serve
 			-- Default is to find functions first.
-			if type(eval.execution[group][req]) == 'function' 
+			if type(rxid.execution) == 'function' 
 			then
 				-- If there's an error, payload will die here.
-				payload = interpret.funct( eval.execution[group][req] ) or "" 
+				payload = interpret.funct( rxid.execution ) or "" 
 			-- Then skels.
-			-- elseif bla then -- F.exists()
 			-- Then htmls.
-			else
+			elseif rxid.include 
+			then
 				-- One of these HAS to work. If not, it's an error.
 				for _,inc in ipairs({"skel","html"})
 				do
-					payload = add[inc]( req )
+					payload = add[inc]( rxid.include )
 					if payload then break end 
 				end
 
@@ -1280,14 +1497,16 @@ return {
 			end
  
 			-- Serve over xmlhttp if asked.
+			--[[
 			if eval.xhr[group] and is.value(req, eval.xhr[group]) 
 			then
 				response.abort({200}, payload)
 
 			-- If not serve like normal.
 			else
+			--]]
 				return payload 
-			end
+			-- end
 		end
 
 		------------------------------------------------------
@@ -1295,7 +1514,7 @@ return {
 		------------------------------------------------------
 		local int
 		local active_url 
-		local group = group_sel or "_d_"
+		local group = group_sel or default
 
 		-- Serve per resource. 
 		if type(t) == 'number' -- and type(group_sel) == 'string'
@@ -1311,24 +1530,33 @@ return {
 			local validation = {	
 				level = {
 					datatypes = "number",
-					_number = function (x) t.level = x end,
+					_number = function (x) 
+						fail.level = x 
+					end,
 				},
 				default = {
 					datatypes = "number",
-					_number = function () end,
+					_number = function () 
+					end,
 				},
 				fail = {
 					datatypes = { "boolean", "atable" },
-					_boolean = function () end,
-					_atable = function () end,
+					_boolean = function () 
+					end,
+					_atable = function () 
+					end,
 				},
 				fs_root = {
 					datatypes = { "string", "atable" },
-					_number = function () end,
+					_string = function () 
+					end,
+					_atable = function () 
+					end,
 				},
 				order = {
 					datatypes = { "ntable" }, 
-					_number = function () end,
+					_number = function () 
+					end,
 				},
 			}
 	
