@@ -44,8 +44,13 @@ C         = require("ds.content")			-- Get something from a database.
 as        = require("ds.serialization")	-- Serialization formats.
 render    = require("template/render")		-- Template rendering.
 die       = require("error")					-- Error handling.
-ctypes    = require("http.content-types")  -- Possible Content-Types
-console   = require("debugger")            -- Console for debugging.
+ctypes    = require("http.content-types") -- Possible Content-Types
+console   = require("debugger")           -- Console for debugging.
+
+------------------------------------------------------
+-- Check here if pg.path/index.lua actually exists.
+------------------------------------------------------
+-- ...
 
 ------------------------------------------------------
 -- There must be something else that will help you

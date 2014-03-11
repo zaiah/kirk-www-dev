@@ -1,4 +1,3 @@
-------------------------------------------------------
 -- eval.lua
 --
 -- Creates an interface for crafting the response to
@@ -59,7 +58,7 @@ local group = {
 	fs_root = false,	-- When serving resources, this fragment will tell Kirk where to find the file.
 	members = {},		-- A list of members that belong to this group.
 	default = false,	-- A default resource for a group.
-	class = "",			-- The class to use on a group of resources.
+	class = false,		-- The class to use on a group of resources.
 	string = false,	-- A custom string to use instead of auto-generation.
 	url_root = false,	-- When presenting links, this fragment will be prepended to the resource name or alias.
 	fail = {
@@ -84,6 +83,7 @@ local group = {
 		fs_root = "string",
 		members = "ntable",
 		names = "atable",
+		class = { "string", "ntable", "atable" },
 		fail = {
 			level = "number",
 			message = {
@@ -120,6 +120,7 @@ local gcreate = function (name, t)
 			"types", 
 			"member",
 			"exists",
+			"clone", 
 			"names" 
 		}, new_group)
 
@@ -141,6 +142,26 @@ local gcreate = function (name, t)
 		for kk,vv in pairs(scaffold) do
 			if not groups[name][kk] then
 				groups[name][kk] = vv 
+			end
+		end
+	end
+end
+
+------------------------------------------------------
+-- gmodify 
+--
+-- Modify a group. 
+------------------------------------------------------
+local gmodify = function (g,t)
+	-- Only move forward if the group exists.
+	if g and groups[g] then
+		for kk,vv in pairs(t) do
+			if t[kk] then
+				if type(vv) == group.types[kk] or type(vv) == 'table' 
+				 or is.value(type(vv), group.types[kk]) then
+				-- if kk == 'class' then die.quick(type(groups[g][kk])) end
+					groups[g][kk] = vv 
+				end
 			end
 		end
 	end
@@ -219,17 +240,16 @@ local route = {			-- Group names can be unique so there is no trouble.
 	href = false,			-- hypertext reference of where the route should lead
 	order = false,			-- Number defining the order of interpreted links.
 	member_of = {},		-- String or table containing the group(s) that a route is associated with.
-	xhr = {
-		req_type = false,	-- HTTP method to use for XMLHttpRequests
-		preferred = false,-- Preference of XMLHttpRequest versus a regular server-side dump.
-		pre = false,		-- A Javascript function to run before serving the resource.
-		post = false,		-- A Javascript funciton to run after serving the resource.
-		mask = false,		-- The mask name of a "fake" group made to serve XHR.
-		show = false,		-- Number defining how fast a resource should be shown after injection.
-		hide = false,		-- Number defining how fast a resource should be hidden after dejection.
-		animate = false,	-- Turn on or turn off animation when injecting/dejecting autobound payloads.
-		name = false,		-- A unique name for the XHR field.
-	},
+	xhr_req_type = false, -- HTTP method to use for XMLHttpRequests
+	xhr_preferred = false,-- Preference of XMLHttpRequest versus a regular server-side dump.
+	xhr_pre = false,		-- A Javascript function to run before serving the resource.
+	xhr_post = false,		-- A Javascript funciton to run after serving the resource.
+	xhr_mask = false,		-- The mask name of a "fake" group made to serve XHR.
+	xhr_show = false,		-- Number defining how fast a resource should be shown after injection.
+	xhr_hide = false,		-- Number defining how fast a resource should be hidden after dejection.
+	xhr_animate = false,	-- Turn on or turn off animation when injecting/dejecting autobound payloads.
+	xhr_name = false,		-- A unique name for the XHR field.
+	xhr_href = false,		-- A hypertext reference.
 
 	-- All types.
 	types = {
@@ -238,7 +258,6 @@ local route = {			-- Group names can be unique so there is no trouble.
 		include = "string",
 		name = "string",
 		alias = "string",
-		class = { "ntable", "string", "atable" },
 		id = { "boolean", "atable" },
 		pre = "function", 
 		post = "function", 
@@ -246,16 +265,16 @@ local route = {			-- Group names can be unique so there is no trouble.
 		href = "string",
 		order = "number",
 		member_of = { "string", "ntable" },
-		xhr = {
-			req_type = "string",
-			preferred = "boolean",
-			pre = { "string", "function" },
-			post = { "string", "function" },
-			mask = "string",
-			show = "number",
-			hide = "number",
-			animate = "boolean",
-		}
+		xhr_req_type = "string",
+		xhr_preferred = "boolean",
+		xhr_pre = { "string", "function" },
+		xhr_post = { "string", "function" },
+		xhr_mask = "string",
+		xhr_name = "string",
+		xhr_show = "number",
+		xhr_hide = "number",
+		xhr_animate = "boolean",
+		xhr_href = "string",
 	}
 }
 
@@ -371,6 +390,8 @@ route.named = rnamed
 ------------------------------------------------------
 local bound = {
 	dom_element = false,		-- A spot on the DOM.
+	is_class = false,			-- Is it a class?
+	is_id = false,				-- Is it an ID?
 	animate = false,			-- Should this particular bound be animated?
 	hide = false,				-- The hide speed for this bound.
 	show = false,				-- The show speed for this bound.
@@ -388,7 +409,7 @@ local bound = {
 --
 -- Create a new bound. 
 ------------------------------------------------------
-local bcreate = function ()
+local bcreate = function (t, return_xid)
 	if t then
 		-- Create a scaffold table for the new route.
 		-- local new_bound = table.clone(bound)
@@ -399,8 +420,18 @@ local bcreate = function ()
 			"types", 
 		}, table.clone(bound))
 
-		-- Create a new table for the route in question.
+		-- Create a new table for the bound in question.
+		local xid = uuid.alnum(10)	
 		bounds[xid] = {}
+
+		-- Check if it's an ID or class.
+		if t.dom_element then 
+			if string.sub(t.dom_element, 0, 1) == '#' then
+				bounds[xid]["is_id"] = true
+			elseif string.sub(t.dom_element, 0, 1) == '.' then
+				bounds[xid]["is_class"] = true
+			end
+		end
 
 		-- Pull valid types from t and set.
 		for kk,vv in pairs(t) do
@@ -408,7 +439,6 @@ local bcreate = function ()
 				if type(vv) == bound.types[kk] or type(vv) == 'table' 
 				 or is.value(type(vv), bound.types[kk]) then
 					bounds[xid][kk] = vv 
-				-- else die.xerror( type of something is bad... )
 				end
 			end
 		end
@@ -419,11 +449,6 @@ local bcreate = function ()
 				bounds[xid][kk] = vv 
 			end
 		end
-
-		-- Assign a group.
-		-- local gid = t.group or default 
-		-- group.member.add( t.name, xid, gid )
-		-- table.insert(bounds[xid]["member_of"], gid)
 
 		-- Return that handle or not.
 		if return_xid then return xid end
@@ -447,76 +472,89 @@ bound.create = bcreate
 bound.modify = bmodify
 bound.remove = bremove
 
-------------------------------------------------------
--- xmlhttp {}
---
--- Table to hold XMLHttpRequest transport parameters.
---
--- autobind = 
-------------------------------------------------------
-local xmlhttp = {
-	-- Binding 
-	autobind = { ["_d_"] = false },	-- Define each item that will dump resources at a location.
-	bind 		= { ["_d_"] = false },	-- Bind resources to events. 
-	bind_points = {},  					-- Empty table for items to bind to.
-	bind_resources = {}, 				-- Empty table for binding resources.
-	
-	-- Animation
-	animate 	= { ["_d_"] = false },	-- Use basic animation when doing stuff.
-	hide 		= { ["_d_"] = false },
-	show 		= { ["_d_"] = false },
-
-	-- Publisher-subscriber
-	listen 	= { ["_d_"] = false },	-- Set up a publisher-subscriber system with resources.
-
-	-- HTTP Requests
-	post 		= { ["_d_"] = false },  -- POST something over XMLHttp.
-	get 		= { ["_d_"] = false },  -- GET something via XMLHttp.
-	head     = { ["_d_"] = false },  -- Make HEAD request via XMLHttp.
-
-	-- Frontend / Backend Interaction
-	shuttle  = { ["_d_"] = false },  -- Send something in the backend to the frontend.
-	validate = { ["_d_"] = false },  -- Validate some area of input fields.
-}
-
-
-------------------------------------------------------
--- xmlhttp_settings {}
---
--- One-time settings for XMLHttp requests.
-------------------------------------------------------
-local xmlhttp_settings = {
-	-- Settings
-	unique 		= false, -- Use unique identifiers as classes.
-	inline 		= false, -- Use inline styles instead of raw Javascript 
-								-- to locate elements.
-	namespace   = "",  	-- Set up a different namespace for classes.
-	wait 			= false, -- Wait until a response is received before moving 
-								-- further.
-	dump 			= false, -- Dump generated Javascript as the result of an 
-								-- XMLHttp call.
-	dump_to  	= "", 	-- Dump generated Javascript as the result of an 
-								-- XMLHttp call to file.
-}
 
 ------------------------------------------------------
 -- xhr {} 
 --
--- status 	= Kirk checks here to see if any automatic XMLHTTPRequest logic has been asked for.
--- js 		= Global table for all dynamically generated Javascript during a session.
--- location	= Table holding a map of location names to unique ID's.
--- resources = ?
--- mapping 	= Table holding a map of location names to unique ID's.
+-- XMLHttpRequest settings and information.
 ------------------------------------------------------
 xhr = {
-	status = false,	-- Boolean to indicate whether or not developer has
-							-- requested XHR.
-	js = {},				-- Table for Kirk's dynamically generated Javascript.
-	location = {}, 	-- Key-Value table mapping DOM elements to unique IDs
-	resources = {}, 	-- Table of resources expected to be served over XHR.
-	mapping = {},  	-- Key-Value table mapping resource payloads to DOM 
-							-- elements.
-	masquerade = {}, 	-- Fake group's links.
+	status = false,		-- Boolean to indicate whether or not developer has
+								-- requested XHR.
+	js = {},					-- Table for Kirk's dynamically generated Javascript.
+	location = {}, 		-- Key-Value table mapping DOM elements to unique IDs
+	resources = {}, 		-- Table of resources expected to be served over XHR.
+	mapping = {},  		-- Key-Value table mapping resource payloads to DOM 
+								-- elements.
+	ns = "joe_x_x_",		-- A url root name. (I wonder what 2 and 3 are...)
+	name = function(x)	-- Return a properly formatted name.
+		return "__" .. x
+	end,
+	unique 		= false, -- Use unique identifiers as classes.
+	namespace   = "",  	-- Set up a different namespace for classes.
+	wait 			= false, -- Wait until a response is received before moving further.
+	dump 			= false, -- Dump generated Javascript as the result of an XMLHttp call.
+	dump_to  	= "", 	-- Dump generated Javascript to a certain place. 
+}
+
+------------------------------------------------------
+-- local convert {}
+--
+-- Convert to different Javascript types.
+------------------------------------------------------
+local convert = {
+	------------------------------------------------------
+	-- array()
+	--
+	-- Convert something to an array.
+	------------------------------------------------------
+	array = function (t)
+	end,
+
+	------------------------------------------------------
+	-- object()
+	--
+	-- Convert something to an object.  (JSON)   If set
+	-- is called, then the object will be set to a value
+	------------------------------------------------------
+	object = function (t, set, encaps)
+		local js, js_str = {}, ""
+	
+		if set and encaps then
+			js_str = "var " .. set .. " = {" 
+		elseif set then
+			js_str = set .. ":{" 
+		else
+			js_str = "{"
+		end
+		
+		for k,v in pairs(t) do
+			if type(v) ~= "string" then
+				die.xerror({
+					fn = fname,
+					msg = "local %f expects strings within supplied table."
+				})
+			end 
+			table.insert(js, table.concat({k, ":", "'", v, "'"}))
+		end 
+
+		-- Evaluate again.
+		if set and encaps then
+			return table.concat( {js_str, table.concat(js,","), "};"} )
+		elseif set then
+			return table.concat( {js_str, table.concat(js,","), "}"} )
+		else
+			return table.concat( {js_str, table.concat(js,","), "}"} )
+		end
+	end,
+
+	------------------------------------------------------
+	-- collection()
+	--
+	-- Convert a table to a collection.
+	------------------------------------------------------
+	collection = function (t)
+	end,
 }
 
 ------------------------------------------------------
@@ -577,7 +615,7 @@ local function objectify( t, name )
 				msg = "local %f expects strings within supplied table."
 			})
 		end 
-		table.insert(js, table.concat({k, ": ", "'", v, "'"}))
+		table.insert(js, table.concat({k, ":", "'", v, "'"}))
 	end 
 
 	return table.concat( {js_str, table.concat(js,","), "};"} )
@@ -589,7 +627,6 @@ end
 -- Public functions for serving pages. 
 ------------------------------------------------------
 return {
-	-- test = require("http.eval-4-test-set")
 	------------------------------------------------------
 	-- .default( term )
 	--
@@ -879,20 +916,38 @@ return {
 						return false 
 					end,
 					_ntable = function (x) -- Are the typechecks done here?
-						if is.ni(x) then
-							groups[default]["class"] = table.concat(x," ")
-						else
-							die.xerror({
-								fn = "E.links",
-								msg = "Cannot support named tables at index [class]" 
-							})
+						for k,v in pairs(x) do
+							if type(k) == 'number' then
+								if type(v) == 'string' then
+									groups[default]["class"] = v
+									-- die.quick(orig)
+								elseif type(v) == 'table' then
+									die.xerror({
+										fn = "E.links",
+										msg = "Cannot support numerically indexed tables not associated "..
+										"with a group at index [class] at index ["..k.."] in %f."
+									})
+								end
+							elseif type(k) == 'string' then
+								if type(v) == 'string' then
+									groups[k]["class"] = v
+								elseif type(v) == 'table' then
+									for kk,vv in pairs(v) do
+										if type(vv) == 'string' then
+											groups[kk]["class"] = vv
+										elseif type(vv) == 'table' then
+											groups[kk]["class"] = table.concat(vv," ")
+										end
+									end
+								end
+							end
 						end
 						return false 
 					end,
 				},
 
 				url_root = { 
-					datatypes = { "string", "atable" },
+					datatypes = { "string", "atable", "ntable" },
 					_string = function (x)
 						groups[default]["url_root"] = x
 						return false
@@ -902,6 +957,32 @@ return {
 							if group.exists(xx) then
 								groups[xx]["url_root"] = yy 
 							-- Another spot for strict errors.
+							end
+						end
+					end,
+					_ntable = function (x)
+						for xx,yy in pairs(x) do
+							if type(xx) == 'number' then
+								if type(yy) == 'string' then
+									groups[default]["url_root"] = yy
+								else
+									die.xerror({
+										fn = "E.set",
+										tn = type(yy),
+										msg = "Received %t at index ["..xx.."] at %f."
+									})
+								end	
+							elseif type(xx) == 'string' then
+								if type(yy) == 'string' then
+									if group.exists(xx) then
+										groups[xx]["url_root"] = yy
+									else
+										die.xerror({
+											fn = "E.links", 
+											msg = "Group "..xx.." does not exist at %f."
+										})
+									end
+								end
 							end
 						end
 					end,
@@ -1104,9 +1185,16 @@ return {
          -- of the table in [t].
          ------------------------------------------------------
 			local aa = {}
-			for xxnn,v in ipairs({
-				"class", "url_root", "id", "string","alias","subvert"	
-			})
+			local keys = {
+				"class", 
+				"url_root", 
+				"id", 
+				"string",
+				"alias",
+				"subvert"
+			}
+
+			for xxnn,v in ipairs(keys)
 			do
 				if t[v] then
 					shuffle(validation, t[v], v, "E.links")
@@ -1120,13 +1208,13 @@ return {
 			local links = {}
 			for __,link_group in ipairs(groupnames) -- href.group[href.group] )
 			do
-				-- Move through strings doing replacements.
+				-- Use a custom string for link dumps.
 				if t and t.string and t.string[link_group]
 				then
-					-- Will use a custom syntax.
-					for __,link_value in ipairs(eval.group[link_group])
-					do
-						new_string = string.gsub(tostring(t.string[link_group]), '%%s', link_value)
+					local g = groups[link_group]
+
+					for link_value, lxid in pairs(g.members) do
+						local new_string = string.gsub(tostring(t.string[link_group]), '%%s', link_value)
 						table.insert(links, new_string) 
 					end
 
@@ -1134,22 +1222,24 @@ return {
 				else
 					local g = groups[link_group]
 					for ltit, lxid in pairs(g.members) do
+						-- Routes...
 						local x = routes[lxid]
+
+						-- Make a new link.
 						table.insert(links, table.concat({
 							-- Start the tag.
 							'<a href=', 
 							-- Relative root and resource name.
-							'"', tostring(g.url_root), ltit, '"', 
+							'"', tostring(g.url_root or "/"), ltit, '"', 
 							-- Class Name.
 							(function ()
-								local xhr_name = string.append(xhr.resources[ltit], " ") 
-								return string.set(table.concat({
-									string.append(xhr.resources[ltit], " "), 
-									g.class -- ) 
-								}), " class")
+								return string.set(
+									table.concat({x.xhr_mask or "",g.class or "",}," "), 
+								" class")
 							end)(),
 							-- ID name
 							(function ()
+								-- ifthen(g.id, string.set(ltit, " id"), "")
 								if g.id then
 									return string.set(ltit, " id")
 								else 
@@ -1208,7 +1298,6 @@ return {
 	xhr = function (t)
 		-- Set a function name for errors.
 		local fname = "E.xhr"
-		local xhr_ns = "xhrkirk__"
 	
 		-- Pull everything out of t and start processing XHR logic.
 		if t then
@@ -1273,27 +1362,59 @@ return {
 					end,
 
 					_string  = function (x)
-						-- Create a bound.
-						-- Do some string checking to see whether or not the bound is 
-						-- an ID or class (or something totally different...)
-						bound.create({ dom_element = x })
+						-- Create a bound. Do some string checking to see whether 
+						-- or not the bound is an ID or class (or something else)
+						local bound_name = bound.create({ dom_element = x }, true)
 
-						-- Copy all resources into the fake group.
-						group.clone( default, xhr_ns .. default )
-						
-						-- One "sink" is going to get all your resources.   
-						-- Don't care from where.
-						for __,member_name in ipairs(groups[xhr_ns .. default]["members"]) do
-							local rxid = routes[route.named( member_name, xhr_ns .. default )]
-							if rxid then
-							end
-							xhr.location[ uuid.alpha(4) ] = x
+						-- Create a fake group.
+						group.clone( default, xhr.ns )
+
+						-- Modify the default class that stuff can be done.
+						group.modify( xhr.ns, {
+							-- Set a URL root according to levels of depth.
+							url_root = (function ()
+								-- Still have to solve for levels...
+								local orig_url_root = groups[xhr.ns]["url_root"]
+								local xhr_url_root = "/" .. xhr.ns .. "/"
+							
+								-- If there was one at all, then return something.
+								if orig_url_root then
+									return xhr_url_root
+								else
+									return false
+								end
+							end)(),
+						})
+
+						-- Set up the new resources.	
+						for mb_name, mb_xid in pairs(groups[default]["members"]) do
+							local xmask = "__" .. mb_name
+							-- Copy all resources into the fake group.
+							route.modify({
+								-- Choose to modify the resource in question.
+								xid = mb_xid,
+
+								-- Match to the bound point.
+								autobound = bound_name,
+
+								-- Set XHR preferred value.
+								xhr_preferred = true,
+								
+								-- Set an XHR mask.
+								xhr_mask = xmask,
+
+								-- Set an XHR class.
+								xhr_name = "__" .. uuid.alnum(10),
+
+								-- Set a new href.
+								xhr_href = (
+									groups[xhr.ns]["url_root"] or "/" ..
+									xmask
+								)
+							})
 						end
-						
-						-- You need to set ALL the classes here.
-						table.insert(xhr.resources, x)
 					end,
-				},
+				} -- autobind
 			}
 
 			-- Extract settings.
@@ -1312,7 +1433,7 @@ return {
 			end	
 
 			-- Get all keys from t.	
-			t = table.retrieve(table.keys(xmlhttp), t)
+			-- t = table.retrieve(table.keys(xmlhttp), t)
 
 			-- Cycle through each.
 			for n,v in pairs(t) do	
@@ -1320,29 +1441,41 @@ return {
 					if t[n] then
 						shuffle(validation, t[n], n, fname)
 					end
-
-					local masquerade = "xhrkirk__"  -- Any old name will do...
-					eval.group[masquerade] = eval.group._d_
-					eval.execution[masquerade] = eval.execution._d_
 				end
 			end
 
-			-- Either before or after the JS generation, create the
-			-- masquerading resource.  Must match the current URL level.
-			-- Can modify pg.default.page if the resource is in a certain spot.  
-			-- But would it matter at all if the resource were higher up?
-			-- Check data.url maxn to make sure that the table isn't bigger than it needs to be...
+			-- If there were groups, cycle through them and see if XHR was
+			-- requested.  If not, then go through the objects.
 
-			die.quick(table.dump(eval.group))
-			-- Generate the JS
-			table.insert(xhr.js, arrayify( table.values(xhr.resources), "__RESOURCES__" ))
-			table.insert(xhr.js, objectify( xhr.location, "__LOCATION__" ))
-			table.insert(xhr.js, objectify( xhr.mapping, "__MAPPING__" ))
-			table.insert(xhr.js, objectify( xhr.masquerade, "__MASQUERADE__" ))
+			-- Dump your bound points.
+			local bound_route = {}
+			for bxid, bt in pairs(bounds) do
+				for k,v in pairs(bt) do
+					if v then 
+						table.insert(bound_route, k .. ':"' .. tostring(v) .. '"') 
+					end
+				end
+				table.insert( xhr.js, 
+					"var __BOUNDS__ = {"..table.concat(bound_route,',').."};")
+			end
 
+			-- Only create objects for what was requested.
+			local js_route = {}
+			for rxid, rt in pairs(routes) do
+				if rt.xhr_preferred then
+					table.insert(js_route, 
+						convert.object({
+							location = rt.autobound,
+							href = rt.xhr_href,
+						}, rxid))
+				end
+			end
+
+			-- Finally wrap the routes.
+			table.insert(xhr.js, "var __ROUTES__ = {"..table.concat(js_route,",").."}")
 			-- Dump the Javascript.
 			xhr.status = true
-			if settings.dump then
+			if xhr.dump then
 				return "\n" .. table.concat(xhr.js, "\n") .. "\n</script>\n"
 			else
 				table.insert(xhr.js,"</script>")
@@ -1498,7 +1631,16 @@ return {
 					})
 				end
 			end
- 
+
+			--[[ Test payload of more tables.
+			aa = {}
+			for nn,vv in pairs(groups) do
+				table.insert(aa, nn .. ":<br />")
+				table.insert(aa, table.dump(vv,true))
+			end
+		 	die.quick( aa ) 
+			--]]
+			
 			-- Serve over xmlhttp if asked.
 			--[[
 			if eval.xhr[group] and is.value(req, eval.xhr[group]) 
