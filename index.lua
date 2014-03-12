@@ -173,7 +173,7 @@ end
 ------------------------------------------------------
 -- Disable a few things to keep from CGI hell.
 ------------------------------------------------------
-assert      = nil  -- This stops execution and will not handle correctly.
+-- assert   = nil  -- This stops execution and will not handle correctly.
 getfenv     = nil  -- Disable this.
 setfenv     = nil  -- Disable this.
 _G          = nil  -- Carry no globals this way.
