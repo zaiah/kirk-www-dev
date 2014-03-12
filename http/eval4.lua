@@ -1,3 +1,4 @@
+------------------------------------------------------
 -- eval.lua
 --
 -- Creates an interface for crafting the response to
@@ -38,7 +39,7 @@ local lxid = function (n) 	-- Find an xid.
 end
 
 local ladd = function (x) 	-- Add a new record.
-	local xid = uuid.alnum(6)
+	local xid = uuid.alpha(6)
 	table.insert(lookup.names, x)
 	table.insert(lookup.xids, xid)
 	return xid
@@ -296,6 +297,7 @@ local rcreate = function (t, return_xid)
 			"names",
 			"types", 
 			"named", 
+			"ns", 
 			"xid"
 		}, new_route)
 
@@ -320,6 +322,15 @@ local rcreate = function (t, return_xid)
 			end
 		end
 
+		-- Set href from here.
+		routes[xid]["href"] = routes[xid]["name"]
+
+		-- Also add an info group for static information.
+		routes.info = { 
+			ns = "__ROUTES__",		-- Javascript namespace.
+			types = route.types		-- Datatypes supported.
+		}
+
 		-- Assign a group.
 		local gid = t.group or default 
 		group.member.add( t.name, xid, gid )
@@ -343,9 +354,9 @@ end
 -- Retrieve a resource named 'name' in a group g. 
 ------------------------------------------------------
 local rnamed = function (name, g)
-	local group = g or default
-	if name then
-		return groups[group]["members"][name]
+	local groupn = g or default
+	if name and group.exists(groupn) then
+		return groups[groupn]["members"][name]
 	end
 end
 
@@ -392,6 +403,7 @@ local bound = {
 	dom_element = false,		-- A spot on the DOM.
 	is_class = false,			-- Is it a class?
 	is_id = false,				-- Is it an ID?
+	name = false,				-- Give a bound a human name.
 	animate = false,			-- Should this particular bound be animated?
 	hide = false,				-- The hide speed for this bound.
 	show = false,				-- The show speed for this bound.
@@ -421,17 +433,8 @@ local bcreate = function (t, return_xid)
 		}, table.clone(bound))
 
 		-- Create a new table for the bound in question.
-		local xid = uuid.alnum(10)	
+		local xid = uuid.alpha(10)	
 		bounds[xid] = {}
-
-		-- Check if it's an ID or class.
-		if t.dom_element then 
-			if string.sub(t.dom_element, 0, 1) == '#' then
-				bounds[xid]["is_id"] = true
-			elseif string.sub(t.dom_element, 0, 1) == '.' then
-				bounds[xid]["is_class"] = true
-			end
-		end
 
 		-- Pull valid types from t and set.
 		for kk,vv in pairs(t) do
@@ -443,12 +446,40 @@ local bcreate = function (t, return_xid)
 			end
 		end
 
+		-- Check if it's an ID or class.
+		if t.dom_element then 
+			if string.sub(t.dom_element, 0, 1) == '#' then
+				bounds[xid]["is_id"] = true
+				bounds[xid]["dom_element"] = table.concat({
+					"document.getElementById('",
+					string.sub(t.dom_element, 2, string.len(t.dom_element)),
+					"')"
+				})
+			elseif string.sub(t.dom_element, 0, 1) == '.' then
+				bounds[xid]["is_class"] = true
+				bounds[xid]["dom_element"] = table.concat({
+					"document.getElementsByClassName('",
+					string.sub(t.dom_element, 2, string.len(t.dom_element)),
+					"')"
+				})
+			else
+				-- Assume ID if # or . is omitted.
+				bounds[xid]["dom_element"] = t.dom_element 
+			end
+		end
+
 		-- Set the rest of the defaults.
 		for kk,vv in pairs(scaffold) do
 			if not bounds[xid][kk] then
 				bounds[xid][kk] = vv 
 			end
 		end
+
+		-- Also add an info group for static information.
+		bounds.info = { 
+			ns = "__BOUNDS__",		-- Javascript namespace.
+			types = bound.types		-- Datatypes supported.
+		}
 
 		-- Return that handle or not.
 		if return_xid then return xid end
@@ -468,9 +499,14 @@ end
 local bremove = function ()
 end
 
+local bexists = function (n)
+	if bounds[n] then return true else return false end
+end
+
 bound.create = bcreate
 bound.modify = bmodify
 bound.remove = bremove
+bound.exists = bexists
 
 
 ------------------------------------------------------
@@ -487,6 +523,7 @@ xhr = {
 	mapping = {},  		-- Key-Value table mapping resource payloads to DOM 
 								-- elements.
 	ns = "joe_x_x_",		-- A url root name. (I wonder what 2 and 3 are...)
+	default = "",			-- An XHR default name.
 	name = function(x)	-- Return a properly formatted name.
 		return "__" .. x
 	end,
@@ -529,13 +566,21 @@ local convert = {
 		end
 		
 		for k,v in pairs(t) do
-			if type(v) ~= "string" then
+			if not is.value(type(v), {"string", "boolean", "number"}) 
+			then
 				die.xerror({
 					fn = fname,
 					msg = "local %f expects strings within supplied table."
 				})
 			end 
-			table.insert(js, table.concat({k, ":", "'", v, "'"}))
+
+			local kv
+			if type(v) == 'string' and k ~= "dom_e" then
+				kv = '"' .. v .. '"'
+			else
+				kv = tostring(v)
+			end	
+			table.insert(js, table.concat({k, ":", kv}))
 		end 
 
 		-- Evaluate again.
@@ -1004,6 +1049,11 @@ return {
 					end,
 				},
 
+            ------------------------------------------------------
+            -- string 
+            --
+				-- ...
+            ------------------------------------------------------
 				string = { 
 					datatypes = { "string", "atable" },
 					_string = function (x)
@@ -1298,6 +1348,11 @@ return {
 	xhr = function (t)
 		-- Set a function name for errors.
 		local fname = "E.xhr"
+
+		-- Some xhr related functions that don't quite fit anywhere else yet.
+		-- autobind is the first
+		-- bind may be the second.
+		-- Most of this stuff is static, so it shouldn't be a big deal.
 	
 		-- Pull everything out of t and start processing XHR logic.
 		if t then
@@ -1333,86 +1388,224 @@ return {
 				-- *nil
 				------------------------------------------------------
 				autobind = {
-					datatypes = { "atable", "string" },
-					_atable = function (x)
+					datatypes = { "atable", "ntable", "string" },
+					_ntable = function (x)
+						local bound_name
 						for xx,yy in pairs(x) do
-							-- Set the location name.
-							local location_name, class_name = uuid.alpha(4), ""
-							xhr.location[ location_name ] = xx
-
 							-- Set any available resources.
-							if type(yy) == 'table' and is.ni(yy) then
-								for __,v in ipairs(yy) do
-									-- Must take groups into account.
-									
-									-- Save a record of the new class association.
-									xhr.resources[v] = "_" .. string.lower(uuid.alpha(7))
-									-- Also save how it's mapped for JS dump.
-									xhr.mapping[ xhr.resources[v] ] = location_name 
-									-- Save a record of the link needing presentation over XHR.
-									table.insert(eval.xhr._d_, v)
+							if type(xx) == 'string' then
+								-- Check if the bound exists in some propensity. 
+								-- Create it if it doesn't.
+								--[[
+								bound.create({ dom_element = "yourmom" })
+								die.quick(bounds[ (table.keys(table.retrieve_non_matching({"info"},bounds)))[1] ])
+								if not bound.exists( xx ) then
+									bound_name = bound.create({ dom_element = x }, true)
 								end
-							-- Set all the resources' class names.
-							elseif type(yy) == 'string' then
-								xhr.resources[yy] = "_" .. string.lower(uuid.alpha(7))
-								xhr.mapping[ xhr.resources[yy] ] = location_name 
-								table.insert(eval.xhr._d_, yy)
+								--]]
+								bound_name = bound.create({ dom_element = xx }, true)
+
+								-- Move through the table setting crap.
+								if type(yy) == 'table' then
+									for kk,vv in pairs(yy) do
+										if type(kk) == 'string'
+										then
+											-- Check if an XHR group exists.  Create if not.
+											xhr_n = xhr.ns .. kk 	-- XHR group name.  ifnot ifthen
+											if not group.exists( xhr_n ) 
+											then
+										  		-- Create a fake group.
+										  		group.clone( kk, xhr_n )
+									  		end
+
+											-- Group table lookup
+											local glookup
+
+											-- If it's a boolean, every member of group kk should be autobound.
+											if type(vv) == 'boolean' then
+												glookup = groups[xhr_n]["members"]
+
+											-- If it's a table, every member in table belonging to group kk should be auto
+											elseif type(vv) == 'table' then
+												-- Break this up...
+												glookup = vv
+												-- You need to check these values too...
+											-- If it's a string, only that single member of group kk should be auto
+											elseif type(vv) == 'string' then
+												glookup = { vv = groups[xhr_n]["members"][vv] }
+											end
+						
+									  		-- Set up the new resources.	
+									  		-- die.quick(groups[xhr.default]["members"])
+									  		for mb_name, mb_xid in pairs(glookup) do
+												local xmask = "__" .. mb_name -- Set up an xhr name.
+										 		route.modify({
+										 		xid = mb_xid, -- Modify resource in question.
+										 		autobound = bound_name, -- Assign to bound name.
+										 		xhr_name = "__" .. uuid.alpha(10), -- wtf is this?
+										 		xhr_preferred = true, -- xhr preference is true for payload
+										 		name = xmask, -- The original href.
+										 		xhr_mask = mb_xid,  -- ???
+										 		xhr_name = "__" .. uuid.alpha(10), -- Might be the location...
+										 		xhr_href = (	-- XHR href (that our JS will ask for)
+										 			groups[xhr_n]["url_root"] or "/" ..
+													xmask
+										 		)
+												})
+											end
+
+										-- Move through all the members of the table, binding them to payload. 
+										elseif type(kk) == 'number'
+										then 
+											-- Check if an XHR group exists.  Create if not.
+											xhr_n = xhr.ns .. default 
+											if not group.exists( xhr_n ) then
+										  		-- Create a fake group.
+										  		group.clone( default, xhr_n )
+									  		end
+
+											if type(vv) == 'string' then
+												-- Find 
+												local xid = routes[route.named( vv, default )]
+												if xid then
+													route.modify({
+													  xid = xid, -- Modify resource in question.
+													  autobound = bound_name, -- Assign to bound name.
+													  xhr_name = "__" .. uuid.alpha(10), -- wtf is this?
+													  xhr_preferred = true, -- xhr preference is true for payload
+													  name = xmask, -- The original href.
+													  xhr_mask = mb_xid,  -- ???
+													  xhr_name = "__" .. uuid.alpha(10), -- Might be the location...
+													  xhr_href = (	-- XHR href (that our JS will ask for)
+														  groups[xhr_n]["url_root"] or "/" ..
+														  xmask
+													  )
+													})
+												end	
+											end
+										end -- if type(kk) == 'string'
+
+										-- Modify the default class that stuff can be done.
+										group.modify( xhr_n, {
+										-- Remove all the "original" members.
+										members = (function ()
+											local aa = {}
+												for k,v in pairs(groups[xhr_n]["members"]) do
+													aa["__" .. k] = v
+													groups[xhr_n]["members"][k] = nil 
+												end
+												return aa
+										end)()
+										})
+									end
+
+								-- hi
+								elseif type(yy) == 'string' then
+									local xmask = "__" .. mb_name -- Set up an xhr name.
+								 	route.modify({
+								 		xid = mb_xid, -- Modify resource in question.
+								 		autobound = bound_name, -- Assign to bound name.
+								 		xhr_name = "__" .. uuid.alpha(10), -- wtf is this?
+								 		xhr_preferred = true, -- xhr preference is true for payload
+								 		name = xmask, -- The original href.
+								 		xhr_mask = mb_xid,  -- ???
+								 		xhr_name = "__" .. uuid.alpha(10), -- Might be the location...
+								 		xhr_href = (	-- XHR href (that our JS will ask for)
+								 			groups[xhr_n]["url_root"] or "/" ..
+											xmask
+								 		)
+								 	})
+
+									-- Modify the default class that stuff can be done.
+									group.modify( xhr_n, {
+										-- Remove all the "original" members.
+										members = (function ()
+											local aa = {}
+											for k,v in pairs(groups[default]["members"]) do
+											aa["__" .. k] = v
+											groups[xhr_n]["members"][k] = nil 
+											end
+											return aa
+										end)()
+									})
+								end
+
+							
+							elseif type(xx) == 'number' then
+								-- String sets all defaults to autobind to the one. 
+								if type(yy) == 'string' then
+								-- Simple table to sets all defaults to autobind to each value in the table.
+								elseif type(yy) == 'table' then
+								else
+									die.xerror({
+										fn = "E.serve",
+										msg = "%f"	
+									})
+								end
+							-- Fail mightily on any other type.
+							else
+								die.xerror({
+									fn = "E.serve",
+									msg = "%f"	
+								})
 							end
 						end
 					end,
 
+					_atable = function (x)
+					end,
+
 					_string  = function (x)
-						-- Create a bound. Do some string checking to see whether 
-						-- or not the bound is an ID or class (or something else)
+						-- Create an XHR group name for defaults.
+						xhr.default = xhr.ns .. default
+
+						-- Create a bound. 
 						local bound_name = bound.create({ dom_element = x }, true)
 
 						-- Create a fake group.
-						group.clone( default, xhr.ns )
-
-						-- Modify the default class that stuff can be done.
-						group.modify( xhr.ns, {
-							-- Set a URL root according to levels of depth.
-							url_root = (function ()
-								-- Still have to solve for levels...
-								local orig_url_root = groups[xhr.ns]["url_root"]
-								local xhr_url_root = "/" .. xhr.ns .. "/"
-							
-								-- If there was one at all, then return something.
-								if orig_url_root then
-									return xhr_url_root
-								else
-									return false
-								end
-							end)(),
-						})
+						group.clone( default, xhr.default )
 
 						-- Set up the new resources.	
+						-- die.quick(groups[xhr.default]["members"])
 						for mb_name, mb_xid in pairs(groups[default]["members"]) do
+							-- Set up an easy xhr name.
 							local xmask = "__" .. mb_name
-							-- Copy all resources into the fake group.
+		
+							-- Choose to modify the resource in question.
 							route.modify({
-								-- Choose to modify the resource in question.
-								xid = mb_xid,
-
+								xid = mb_xid, 
 								-- Match to the bound point.
 								autobound = bound_name,
-
+								-- Set an XHR class.
+								xhr_name = "__" .. uuid.alpha(10),
 								-- Set XHR preferred value.
 								xhr_preferred = true,
-								
+								-- Add the original name.
+								name = xmask,
 								-- Set an XHR mask.
-								xhr_mask = xmask,
-
+								xhr_mask = mb_xid,
 								-- Set an XHR class.
-								xhr_name = "__" .. uuid.alnum(10),
-
+								xhr_name = "__" .. uuid.alpha(10),
 								-- Set a new href.
 								xhr_href = (
-									groups[xhr.ns]["url_root"] or "/" ..
+									groups[xhr.default]["url_root"] or "/" ..
 									xmask
 								)
 							})
 						end
+
+						-- Modify the default class that stuff can be done.
+						group.modify( xhr.default, {
+							-- Remove all the "original" members.
+							members = (function ()
+								local aa = {}
+								for k,v in pairs(groups[default]["members"]) do
+									aa["__" .. k] = v
+									groups[xhr.default]["members"][k] = nil 
+								end
+								return aa
+							end)()
+						})
 					end,
 				} -- autobind
 			}
@@ -1446,33 +1639,42 @@ return {
 
 			-- If there were groups, cycle through them and see if XHR was
 			-- requested.  If not, then go through the objects.
+			for __,tt in ipairs({bounds, routes}) do
+				table.insert(xhr.js, 
+					"var ".. tt.info.ns .." = {"..
+					(function (t) 
+						-- Create an anonymous table.
+						local xt = {}
+						local ft = table.retrieve_non_matching({"info"}, t)	
 
-			-- Dump your bound points.
-			local bound_route = {}
-			for bxid, bt in pairs(bounds) do
-				for k,v in pairs(bt) do
-					if v then 
-						table.insert(bound_route, k .. ':"' .. tostring(v) .. '"') 
-					end
-				end
-				table.insert( xhr.js, 
-					"var __BOUNDS__ = {"..table.concat(bound_route,',').."};")
+						-- Move through all indexes.
+						for ename, et in pairs(ft) do
+							if tt.info.ns == '__ROUTES__' and et.xhr_preferred 
+							then
+								table.insert(xt, 
+									convert.object({
+										location = et.autobound,
+										xhref = et.xhr_href,
+										href = et.href,
+									}, ename))
+							elseif tt.info.ns == '__BOUNDS__' then
+								table.insert(xt, 
+									convert.object({
+										hide = et.hide,
+										show = et.show,
+										id = et.is_id,
+										class = et.is_class,
+										dom_e = et.dom_element,
+										animate = et.animate,
+									}, ename))
+							end
+						end
+				
+						-- Return payload.
+						return table.concat(xt,",") or ""
+					end)(tt) .. "};")
 			end
 
-			-- Only create objects for what was requested.
-			local js_route = {}
-			for rxid, rt in pairs(routes) do
-				if rt.xhr_preferred then
-					table.insert(js_route, 
-						convert.object({
-							location = rt.autobound,
-							href = rt.xhr_href,
-						}, rxid))
-				end
-			end
-
-			-- Finally wrap the routes.
-			table.insert(xhr.js, "var __ROUTES__ = {"..table.concat(js_route,",").."}")
 			-- Dump the Javascript.
 			xhr.status = true
 			if xhr.dump then
@@ -1546,6 +1748,7 @@ return {
 			local payload
 			local groupn = group_sel or default
 			local g = groups[groupn] 
+			local xgn = xhr.ns .. groupn
 
 			-- Better check if alternate groups exist first.
 			if not g then
@@ -1590,9 +1793,26 @@ return {
 				end
 			end
 
+			-- if XHR true?
+			local rxid, jxid, nxid
+			-- If xhr is on, AND the resource is not in your main group, then look to see if it's 
+			-- in another group.	
+			if xhr.status then
+				-- If you are just doing regular requests, this is your choice.
+				nxid = routes[route.named(req, groupn)]
+				-- XHR is this one.
+				jxid = routes[route.named(req, xgn)]
+				-- Set it properly.
+				rxid = nxid or jxid
+			-- XHR isn't on, so do regular stuff.
+			else
+				-- Routes
+				rxid = routes[route.named(req, groupn)]
+			end
+
 			-- 404 or proceed if the name isn't a listed resource.
 			-- die.quick(groups[groupn])
-			local rxid = routes[route.named(req, groupn)]
+			-- local rxid = routes[route.named(req, groupn)]
 			if not rxid then
 				-- Fail with a 404.
 				if g.fail.level and not is.value(req, g.fail.except) then
@@ -1605,23 +1825,22 @@ return {
 				end
 			end
 
-			-- Default is to find functions first.
+			-- Default is to find functions first...
 			if type(rxid.execution) == 'function' 
 			then
 				-- If there's an error, payload will die here.
 				payload = interpret.funct( rxid.execution ) or "" 
-			-- Then skels.
-			-- Then htmls.
 			elseif rxid.include 
 			then
-				-- One of these HAS to work. If not, it's an error.
+				-- ..then pages. Skels are searched for first, then html files.
 				for _,inc in ipairs({"skel","html"})
 				do
 					payload = add[inc]( rxid.include )
 					if payload then break end 
 				end
 
-				-- Die if payload's still not present.
+				-- Die somehow if payload's still not present.
+				-- 404 seems like the correct response.
 				if not payload
 				then
 					die.xerror({
@@ -1632,26 +1851,21 @@ return {
 				end
 			end
 
-			--[[ Test payload of more tables.
-			aa = {}
-			for nn,vv in pairs(groups) do
-				table.insert(aa, nn .. ":<br />")
-				table.insert(aa, table.dump(vv,true))
-			end
-		 	die.quick( aa ) 
-			--]]
-			
 			-- Serve over xmlhttp if asked.
-			--[[
-			if eval.xhr[group] and is.value(req, eval.xhr[group]) 
+		 --[[
+		  die.quick(table.concat({
+			  "default: " .. table.dump(groups[default]["members"],true),
+			  xgn .. ": " .. table.dump(groups[xgn]["members"],true),
+		  }))
+		  --]]
+			if groups[xgn] and is.key(req, groups[xgn]["members"])
 			then
 				response.abort({200}, payload)
 
 			-- If not serve like normal.
 			else
-			--]]
 				return payload 
-			-- end
+			end
 		end
 
 		------------------------------------------------------
