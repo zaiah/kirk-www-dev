@@ -1082,11 +1082,11 @@ return {
 				subvert = { 
 					datatypes = { "string", "atable", "ntable" }, 
 					_string = function (x)
-						group.remove(x, default)
+						group.member.remove(x, default)
 					end,
 					_ntable = function (x) 
 						for xx,yy in ipairs(x) do
-							group.remove(yy, default)
+							group.member.remove(yy, default)
 						end
 					end,
 					_atable = function (x) 
@@ -1094,18 +1094,18 @@ return {
 							if type(xx) == 'number' then
 								if type(yy) == 'table' and is.ni(yy) then
 									for kk,vv in ipairs(yy) do
-										group.remove(vv, default)
+										group.member.remove(vv, default)
 									end
 								elseif type(yy) == 'string' then
-									group.remove(yy, default)
+									group.member.remove(yy, default)
 								end
 							elseif type(xx) == 'string' and group.exists(xx) then 
 								if type(yy) == 'table' and is.ni(yy) then
 									for kk,vv in ipairs(yy) do
-										group.remove(vv, default)
+										group.member.remove(vv, default)
 									end
 								elseif type(yy) == 'string' then
-									group.remove(yy, default)
+									group.member.remove(yy, default)
 								end
 							else
 								die.xerror({
