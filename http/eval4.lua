@@ -74,8 +74,7 @@ local group = {
 		},
 		except = false,	-- Members in this list that do not exist in a current group will be allowed through.
 	},
-
-	names = {},
+	names = {},			-- ... Is this used?
 
 	-- Types
 	types = {
@@ -122,6 +121,7 @@ local gcreate = function (name, t)
 			"member",
 			"exists",
 			"clone", 
+			"inherit", 
 			"names" 
 		}, new_group)
 
@@ -179,6 +179,30 @@ local gclone = function(g, n)
 end
 
 ------------------------------------------------------
+-- local ginherit
+--
+-- Inherit from an existing group. Make no copy.
+------------------------------------------------------
+local ginherit = function(g, n)
+	if groups[g] then
+		-- Clone a table. 
+		groups[n] = {}
+
+		-- Need a way to do this and skip over certain values.
+		groups[n]["class"] 	= groups[g]["class"] 
+		groups[n]["default"] = groups[g]["default"] 
+		groups[n]["fail"] 	= groups[g]["fail"] 
+		groups[n]["fs_root"]	= groups[g]["fs_root"] 
+		groups[n]["name"] 	= groups[g]["name"] 
+		groups[n]["string"] 	= groups[g]["string"] 
+		groups[n]["url_root"] = groups[g]["url_root"] 
+
+		-- ...
+		groups[n]["members"]	= {}
+	end
+end
+
+------------------------------------------------------
 -- member {} 
 --
 -- Member functions. 
@@ -220,6 +244,7 @@ group.create = gcreate
 group.modify = gmodify
 group.member = gmember 
 group.clone = gclone 
+group.inherit = ginherit 
 group.exists = gexists
 
 
@@ -275,7 +300,7 @@ local route = {			-- Group names can be unique so there is no trouble.
 		xhr_show = "number",
 		xhr_hide = "number",
 		xhr_animate = "boolean",
-		xhr_href = "string",
+		xhr_href = "function",
 	}
 }
 
@@ -389,9 +414,15 @@ local rmodify = function (t)
 	end
 end
 
+-- get the url root for a particular group.
+local rget_url_root = function ()
+	
+end
+
 route.create = rcreate
 route.modify = rmodify
 route.named = rnamed 
+route.get_url_root = rget_url_root 
 
 
 ------------------------------------------------------
@@ -539,7 +570,7 @@ xhr = {
 --
 -- Convert to different Javascript types.
 ------------------------------------------------------
-local convert = {
+convert = {
 	------------------------------------------------------
 	-- array()
 	--
@@ -611,7 +642,7 @@ local convert = {
 --
 -- *string
 ------------------------------------------------------
-local function arrayify( t, name ) 
+function arrayify( t, name ) 
 	fname = "arrayify"
 	local js, js_str = {}, ""
 
@@ -643,7 +674,7 @@ end
 --
 -- *string
 ------------------------------------------------------
-local function objectify( t, name ) 
+function objectify( t, name ) 
 	fname = "objectify"
 	local js, js_str = {}, ""
 	
@@ -993,10 +1024,14 @@ return {
 
 				url_root = { 
 					datatypes = { "string", "atable", "ntable" },
+				
+					-- Set a single URL root.
 					_string = function (x)
 						groups[default]["url_root"] = x
 						return false
 					end,
+
+					-- Move through and set multiple url roots for different groups.
 					_atable = function (x) 
 						for xx,yy in pairs(x) do
 							if group.exists(xx) then
@@ -1005,6 +1040,8 @@ return {
 							end
 						end
 					end,
+
+					-- bla...
 					_ntable = function (x)
 						for xx,yy in pairs(x) do
 							if type(xx) == 'number' then
@@ -1036,7 +1073,7 @@ return {
 				id = { 
 					datatypes = { "atable", "boolean" },
 					_boolean = function (x) 
-						groups[xx]["id"] = x
+						groups[default]["id"] = x
 					end,
 					_atable = function (x)
 						for xx,yy in pairs(x) do
@@ -1082,11 +1119,11 @@ return {
 				subvert = { 
 					datatypes = { "string", "atable", "ntable" }, 
 					_string = function (x)
-						group.member.remove(x, default)
+					--	group.remove(x, default)
 					end,
 					_ntable = function (x) 
 						for xx,yy in ipairs(x) do
-							group.member.remove(yy, default)
+					--		group.remove(yy, default)
 						end
 					end,
 					_atable = function (x) 
@@ -1094,18 +1131,18 @@ return {
 							if type(xx) == 'number' then
 								if type(yy) == 'table' and is.ni(yy) then
 									for kk,vv in ipairs(yy) do
-										group.member.remove(vv, default)
+					--					group.remove(vv, default)
 									end
 								elseif type(yy) == 'string' then
-									group.member.remove(yy, default)
+					--				group.remove(yy, default)
 								end
 							elseif type(xx) == 'string' and group.exists(xx) then 
 								if type(yy) == 'table' and is.ni(yy) then
 									for kk,vv in ipairs(yy) do
-										group.member.remove(vv, default)
+						--				group.remove(vv, default)
 									end
 								elseif type(yy) == 'string' then
-									group.member.remove(yy, default)
+						--			group.remove(yy, default)
 								end
 							else
 								die.xerror({
@@ -1271,6 +1308,13 @@ return {
 				-- Move through the rest.
 				else
 					local g = groups[link_group]
+					local xg = groups[ xhr.ns .. link_group ] 
+
+					-- Modify your xhr group here, this is an ugly hack...
+					if xg and g.url_root then
+						xg.url_root = g.url_root
+					end
+
 					for ltit, lxid in pairs(g.members) do
 						-- Routes...
 						local x = routes[lxid]
@@ -1309,7 +1353,6 @@ return {
 
 			-- Reset to defaults, letting another link chain do work if specified.
 			-- ??
-			
 			-- Return link list to environment.
 			return table.concat(links,"\n")
 	
@@ -1440,17 +1483,19 @@ return {
 									  		for mb_name, mb_xid in pairs(glookup) do
 												local xmask = "__" .. mb_name -- Set up an xhr name.
 										 		route.modify({
-										 		xid = mb_xid, -- Modify resource in question.
-										 		autobound = bound_name, -- Assign to bound name.
-										 		xhr_name = "__" .. uuid.alpha(10), -- wtf is this?
-										 		xhr_preferred = true, -- xhr preference is true for payload
-										 		name = xmask, -- The original href.
-										 		xhr_mask = mb_xid,  -- ???
-										 		xhr_name = "__" .. uuid.alpha(10), -- Might be the location...
-										 		xhr_href = (	-- XHR href (that our JS will ask for)
-										 			groups[xhr_n]["url_root"] or "/" ..
-													xmask
-										 		)
+										 			xid = mb_xid, -- Modify resource in question.
+										 			autobound = bound_name, -- Assign to bound name.
+										 			xhr_name = "__" .. uuid.alpha(10), -- wtf is this?
+										 			xhr_preferred = true, -- xhr preference is true for payload
+										 			name = xmask, -- The original href.
+										 			xhr_mask = mb_xid,  -- ???
+										 			xhr_name = "__" .. uuid.alpha(10), -- Might be the location...
+										 		-- xhr_href = xmask 	-- XHR href (that our JS will ask for)
+													xhr_href = (function (gname)	-- XHR href (that our JS will ask for)
+														return function ()
+															return table.concat({groups[gname]["url_root"] or "/", xmask})
+														end
+													end)( xhr_n )
 												})
 											end
 
@@ -1469,17 +1514,17 @@ return {
 												local xid = routes[route.named( vv, default )]
 												if xid then
 													route.modify({
-													  xid = xid, -- Modify resource in question.
-													  autobound = bound_name, -- Assign to bound name.
-													  xhr_name = "__" .. uuid.alpha(10), -- wtf is this?
-													  xhr_preferred = true, -- xhr preference is true for payload
-													  name = xmask, -- The original href.
-													  xhr_mask = mb_xid,  -- ???
-													  xhr_name = "__" .. uuid.alpha(10), -- Might be the location...
-													  xhr_href = (	-- XHR href (that our JS will ask for)
-														  groups[xhr_n]["url_root"] or "/" ..
-														  xmask
-													  )
+													  	xid = xid, -- Modify resource in question.
+													  	autobound = bound_name, -- Assign to bound name.
+													  	xhr_preferred = true, -- xhr preference is true for payload
+													  	name = xmask, -- The original href.
+													  	xhr_mask = mb_xid,  -- ???
+													  	xhr_name = "__" .. uuid.alpha(10), -- Might be the location...
+														xhr_href = (function (gname)	-- XHR href (that our JS will ask for)
+															return function ()
+																return table.concat({groups[gname]["url_root"] or "/", xmask})
+															end
+														end)( xhr_n )
 													})
 												end	
 											end
@@ -1505,15 +1550,21 @@ return {
 								 	route.modify({
 								 		xid = mb_xid, -- Modify resource in question.
 								 		autobound = bound_name, -- Assign to bound name.
-								 		xhr_name = "__" .. uuid.alpha(10), -- wtf is this?
 								 		xhr_preferred = true, -- xhr preference is true for payload
 								 		name = xmask, -- The original href.
 								 		xhr_mask = mb_xid,  -- ???
 								 		xhr_name = "__" .. uuid.alpha(10), -- Might be the location...
+										--[[
 								 		xhr_href = (	-- XHR href (that our JS will ask for)
 								 			groups[xhr_n]["url_root"] or "/" ..
 											xmask
 								 		)
+										--]]
+										xhr_href = (function (gname)	-- XHR href (that our JS will ask for)
+											return function ()
+												return table.concat({groups[gname]["url_root"] or "/", xmask})
+											end
+										end)( xhr_n )
 								 	})
 
 									-- Modify the default class that stuff can be done.
@@ -1522,8 +1573,8 @@ return {
 										members = (function ()
 											local aa = {}
 											for k,v in pairs(groups[default]["members"]) do
-											aa["__" .. k] = v
-											groups[xhr_n]["members"][k] = nil 
+												aa["__" .. k] = v
+												groups[xhr_n]["members"][k] = nil 
 											end
 											return aa
 										end)()
@@ -1563,21 +1614,20 @@ return {
 						local bound_name = bound.create({ dom_element = x }, true)
 
 						-- Create a fake group.
-						group.clone( default, xhr.default )
+						-- group.clone( default, xhr.default )
+						group.inherit( default, xhr.default )
 
 						-- Set up the new resources.	
 						-- die.quick(groups[xhr.default]["members"])
 						for mb_name, mb_xid in pairs(groups[default]["members"]) do
 							-- Set up an easy xhr name.
 							local xmask = "__" .. mb_name
-		
+
 							-- Choose to modify the resource in question.
 							route.modify({
 								xid = mb_xid, 
 								-- Match to the bound point.
 								autobound = bound_name,
-								-- Set an XHR class.
-								xhr_name = "__" .. uuid.alpha(10),
 								-- Set XHR preferred value.
 								xhr_preferred = true,
 								-- Add the original name.
@@ -1587,10 +1637,11 @@ return {
 								-- Set an XHR class.
 								xhr_name = "__" .. uuid.alpha(10),
 								-- Set a new href.
-								xhr_href = (
-									groups[xhr.default]["url_root"] or "/" ..
-									xmask
-								)
+								xhr_href = (function (gname)	-- XHR href (that our JS will ask for)
+									return function ()
+										return table.concat({groups[gname]["url_root"] or "/", xmask})
+									end
+								end)( xhr.default )
 							})
 						end
 
@@ -1610,21 +1661,6 @@ return {
 				} -- autobind
 			}
 
-			-- Extract settings.
-			local settings = table.retrieve(table.keys(xmlhttp_settings), t)
-			
-			-- Typecheck and validate.
-			if settings then
-				for k,v in pairs(settings) do
-					if type(v) ~= type(xmlhttp_settings[k]) then
-						die.xerror({ 
-							fn = fname, tn = type(xmlhttp_settings[k]),
-							msg = "Expected type %t at index ["..k.."] in %f." 
-						})
-					end
-				end	
-			end	
-
 			-- Get all keys from t.	
 			-- t = table.retrieve(table.keys(xmlhttp), t)
 
@@ -1637,53 +1673,62 @@ return {
 				end
 			end
 
-			-- If there were groups, cycle through them and see if XHR was
-			-- requested.  If not, then go through the objects.
-			for __,tt in ipairs({bounds, routes}) do
-				table.insert(xhr.js, 
-					"var ".. tt.info.ns .." = {"..
-					(function (t) 
-						-- Create an anonymous table.
-						local xt = {}
-						local ft = table.retrieve_non_matching({"info"}, t)	
-
-						-- Move through all indexes.
-						for ename, et in pairs(ft) do
-							if tt.info.ns == '__ROUTES__' and et.xhr_preferred 
-							then
-								table.insert(xt, 
-									convert.object({
-										location = et.autobound,
-										xhref = et.xhr_href,
-										href = et.href,
-									}, ename))
-							elseif tt.info.ns == '__BOUNDS__' then
-								table.insert(xt, 
-									convert.object({
-										hide = et.hide,
-										show = et.show,
-										id = et.is_id,
-										class = et.is_class,
-										dom_e = et.dom_element,
-										animate = et.animate,
-									}, ename))
-							end
-						end
-				
-						-- Return payload.
-						return table.concat(xt,",") or ""
-					end)(tt) .. "};")
-			end
-
 			-- Dump the Javascript.
 			xhr.status = true
-			if xhr.dump then
-				return "\n" .. table.concat(xhr.js, "\n") .. "\n</script>\n"
-			else
-				table.insert(xhr.js,"</script>")
+		end
+	end,
+
+
+	------------------------------------------------------
+	-- js_dump()
+	--
+	-- Return the javascript dump in oh so ghetto fashion.
+	-- *string
+	------------------------------------------------------
+	js_dump = function ()
+		-- Dump any Javascript scaffolding that's been generated.	
+		for __,tt in ipairs({ bounds, routes }) 
+		do
+			if next(tt) then
+				table.insert(xhr.js, 
+				  -- "var x = { " ..  -- ".. tt.info.ns .." = {"..
+				"var ".. tt.info.ns .." = {"..
+				(function (t) 
+				  -- Create an anonymous table.
+				  local xt = {}
+				  local ft = table.retrieve_non_matching({"info"}, t)	
+
+				  -- Move through all indexes.
+				  for ename, et in pairs(ft) do
+					  if tt.info.ns == '__ROUTES__' and et.xhr_preferred 
+					  then
+						  table.insert(xt, 
+							  convert.object({
+								  location = et.autobound,
+								  xhref = et.xhr_href(),
+								  href = et.href,
+							  }, ename))
+					  elseif tt.info.ns == '__BOUNDS__' then
+						  table.insert(xt, 
+							  convert.object({
+								  hide = et.hide,
+								  show = et.show,
+								  is_id = et.is_id,
+								  is_class = et.is_class,
+								  dom_e = "function () { return "..et.dom_element .."}",
+								  animate = et.animate,
+							  }, ename))
+					  end
+				  end
+			  
+				  -- Return payload.
+				  return table.concat(xt,",") or ""
+			  end)(tt)
+			  .. "};")
 			end
 		end
 	end,
+
 
 	------------------------------------------------------
 	-- .fail

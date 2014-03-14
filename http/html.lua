@@ -895,18 +895,12 @@ tag_wrap["open"] = function(t)
 			table.insert(decl,string.format(s,val))
 		end
 
-		-- Iniitialize our body statement. 
-		-- xhr.autobind should be first...
-		-- xhr.bind, and brethren should be second...
-		if type(xhr.js) == 'table'
-		then
-			-- Include anything we've started with E.xhr... 
-			table.insert(decl,table.concat(xhr.js,"\n"))
+		-- Load all Javascript scaffolding behind the scenes.
+		E.js_dump()
 
-			-- Include autobind's initialization.
-			-- table.insert(decl,string.format(s, "/js/kirk-js/init"))
-		end
-	end
+		-- Include anything we've started with E.xhr... 
+		table.insert(decl, table.concat(xhr.js,"\n") .. "</script>")
+	end -- if xhr.status
 
 	-- Include any script tags.
 	if type(this.script) == 'string' 
